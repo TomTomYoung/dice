@@ -1,4 +1,3 @@
-%%html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -40,7 +39,8 @@
     0%,100% { transform:translate(-6%, -4%) scale(1.4); opacity:.12; }
     50% { transform:translate(6%, 4%) scale(1.45); opacity:.2; }
   }
-  .slots { position:relative; display:flex; justify-content:center; gap:22px; z-index:2; }
+  .slots { position:relative; display:flex; flex-direction:column; align-items:center; gap:18px; z-index:2; }
+  .slot-row { display:flex; justify-content:center; gap:22px; width:100%; }
   .reel-wrap { width:var(--reel-w); height:var(--reel-h); border-radius:16px; overflow:hidden; position:relative; background:linear-gradient(#04060b,#111625); box-shadow:inset 0 0 0 1px rgba(122,162,247,.06), 0 14px 40px rgba(0,0,0,.55); }
   .reel-wrap::after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(to bottom, rgba(2,3,5,.85), transparent 28%, transparent 72%, rgba(3,5,9,.82)); }
   .reel { width:100%; height:100%; position:relative; transform-style:preserve-3d; will-change:transform; }
@@ -98,6 +98,14 @@
               <option value="3">3</option>
               <option value="4">4</option>
               <option value="5">5</option>
+            </select>
+          </label>
+          <label>行数
+            <select id="rowCount">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3" selected>3</option>
+              <option value="4">4</option>
             </select>
           </label>
           <label>ベット
@@ -239,9 +247,11 @@ const WEIGHTS = {
 
 const state = {
   reelCount: 3,
+  rowCount: 3,
   symbols: PRESETS.classic.slice(),
   faces: 14,
   reels: [],
+  columnStopButtons: [],
   credits: 1000,
   bet: 10,
   spinning: false,
@@ -255,6 +265,7 @@ const state = {
 
 const $slots = document.getElementById('slots');
 const $stopButtons = document.getElementById('stopButtons');
+const $rowCount = document.getElementById('rowCount');
 const $result = document.getElementById('result');
 const $credits = document.getElementById('credits');
 const $betDisplay = document.getElementById('betDisplay');
@@ -455,50 +466,83 @@ function syncCustomInputs(){
 
 function buildReels(){
   $slots.innerHTML='';
-  $stopButtons.innerHTML='';
-  state.reels.length = 0;
+  state.reels = [];
+  state.columnStopButtons = [];
   const facesCount = Math.max(12, state.symbols.length*1.5|0);
   state.faces = facesCount;
-  for(let r=0;r<state.reelCount;r++){
-    const wrap = document.createElement('div');
-    wrap.className='reel-wrap';
-    const reel = document.createElement('div');
-    reel.className='reel';
-    wrap.appendChild(reel);
-    $slots.appendChild(wrap);
 
-    const H = parseFloat(getComputedStyle(wrap).height);
-    const step = 360 / facesCount;
-    const radius = H/2 / Math.tan(Math.PI / facesCount);
+  for(let row=0; row<state.rowCount; row++){
+    const rowWrap = document.createElement('div');
+    rowWrap.className = 'slot-row';
+    const rowReels = [];
 
-    const faces=[];
-    const indexMap = new Map();
-    for(let i=0;i<facesCount;i++){
-      const face = document.createElement('div');
-      face.className='face';
-      const sym = state.symbols[i % state.symbols.length];
-      face.textContent = sym;
-      face.setAttribute('data-symbol', sym);
-      const rot=i*step;
-      face.style.transform=`rotateX(${rot}deg) translateZ(${radius.toFixed(2)}px)`;
-      reel.appendChild(face);
-      faces.push(face);
-      if(!indexMap.has(sym)) indexMap.set(sym, []);
-      indexMap.get(sym).push(i);
+    for(let col=0; col<state.reelCount; col++){
+      const wrap = document.createElement('div');
+      wrap.className='reel-wrap';
+      const reel = document.createElement('div');
+      reel.className='reel';
+      wrap.appendChild(reel);
+      rowWrap.appendChild(wrap);
+
+      const H = parseFloat(getComputedStyle(wrap).height);
+      const step = 360 / facesCount;
+      const radius = H/2 / Math.tan(Math.PI / facesCount);
+
+      const faces=[];
+      const indexMap = new Map();
+      for(let i=0;i<facesCount;i++){
+        const face = document.createElement('div');
+        face.className='face';
+        const sym = state.symbols[i % state.symbols.length];
+        face.textContent = sym;
+        face.setAttribute('data-symbol', sym);
+        const rot=i*step;
+        face.style.transform=`rotateX(${rot}deg) translateZ(${radius.toFixed(2)}px)`;
+        reel.appendChild(face);
+        faces.push(face);
+        if(!indexMap.has(sym)) indexMap.set(sym, []);
+        indexMap.get(sym).push(i);
+      }
+
+      const reelObj = {wrap,reel,faces,step,radius,turn:0,spinning:false,promise:null,finishNow:null,indexMap,targetFace:0,row,col};
+      rowReels.push(reelObj);
     }
 
-    const reelObj = {wrap,reel,faces,step,radius,turn:0,spinning:false,promise:null,finishNow:null,indexMap,targetFace:0};
-    state.reels.push(reelObj);
+    state.reels.push(rowReels);
+    $slots.appendChild(rowWrap);
+  }
 
+  $stopButtons.innerHTML='';
+  const stopLabels = ['左','中','右','第4','第5','第6','第7'];
+  for(let col=0; col<state.reelCount; col++){
     const btn = document.createElement('button');
-    btn.textContent = `${['左','中','右','第4','第5'][r] || `#${r+1}`}ストップ`;
+    const label = stopLabels[col] || `#${col+1}`;
+    btn.textContent = `${label}ストップ`;
     btn.disabled = true;
     btn.onclick = ()=>{
-      if(reelObj.finishNow) reelObj.finishNow();
+      stopColumn(col);
     };
     $stopButtons.appendChild(btn);
-    reelObj.stopButton = btn;
+    state.columnStopButtons.push(btn);
   }
+}
+
+function forEachReel(callback){
+  state.reels.forEach((rowArr, rowIdx)=>{
+    rowArr.forEach((reel, colIdx)=>{
+      callback(reel, rowIdx, colIdx);
+    });
+  });
+}
+
+function getColumnReels(colIdx){
+  return state.reels.map(row=>row[colIdx]).filter(Boolean);
+}
+
+function stopColumn(colIdx){
+  getColumnReels(colIdx).forEach(reel=>{
+    if(reel && reel.finishNow){ reel.finishNow(); }
+  });
 }
 
 function updateCreditsDisplay(){
@@ -535,8 +579,10 @@ function updateHistory(){
   state.history.slice(-10).reverse().forEach(entry=>{
     const li = document.createElement('li');
     const resultSpan = document.createElement('span');
-    const labelText = entry.label ? ` (${entry.label})` : '';
-    resultSpan.textContent = `${entry.results.join(' | ')}${labelText}`;
+    const linesArray = Array.isArray(entry.results) ? entry.results.map(row=>row.join(' | ')) : [];
+    const lines = linesArray.length ? linesArray.join(' / ') : '—';
+    const labelText = entry.labels && entry.labels.length ? ` (${entry.labels.join(', ')})` : '';
+    resultSpan.textContent = `${lines}${labelText}`;
     const payoutSpan = document.createElement('span');
     payoutSpan.textContent = entry.payout ? `+${entry.payout}` : '0';
     if(entry.payout>0){ payoutSpan.classList.add('win'); }
@@ -556,7 +602,6 @@ function randomFaceIndexForSymbol(reel, symbol){
 
 function animateReelTwoPhase(reel, warmupTurns, finalTargetDeg, finalDuration, delay){
   reel.spinning = true;
-  reel.stopButton.disabled = false;
   let resolveFn; reel.promise = new Promise(res=>resolveFn=res);
   let skipWarmup = false;
   let accelerate = false;
@@ -600,7 +645,6 @@ function animateReelTwoPhase(reel, warmupTurns, finalTargetDeg, finalDuration, d
       reel.spinning = false;
       reel.turn = finalTargetDeg;
       reel.reel.style.transform = `rotateX(${finalTargetDeg}deg)`;
-      reel.stopButton.disabled = true;
       reel.finishNow = null;
       resolveFn();
     }
@@ -649,28 +693,46 @@ function animateReelTwoPhase(reel, warmupTurns, finalTargetDeg, finalDuration, d
 }
 
 function generateSpinResults(){
-  const results = [];
-  for(let i=0;i<state.reelCount;i++){
-    results.push(weightedRandomSymbol());
+  const grid = [];
+  for(let row=0; row<state.rowCount; row++){
+    const rowResults = [];
+    for(let col=0; col<state.reelCount; col++){
+      rowResults.push(weightedRandomSymbol());
+    }
+    grid.push(rowResults);
   }
-  return results;
+  return grid;
 }
 
 function computeTargets(results, turns, duration, stagger, warmup){
   const targets = [];
-  results.forEach((symbol, index)=>{
-    const reel = state.reels[index];
-    const faceIdx = randomFaceIndexForSymbol(reel, symbol);
-    const baseTarget = -faceIdx * reel.step;
-    const extraTurns = turns + index;
-    const targetDeg = baseTarget - 360 * extraTurns;
-    reel.targetFace = faceIdx;
-    targets.push({targetDeg, reel, faceIdx, symbol, duration: duration + index*150, delay: stagger*index, warmup});
+  results.forEach((rowResults, rowIdx)=>{
+    rowResults.forEach((symbol, colIdx)=>{
+      const reel = state.reels[rowIdx][colIdx];
+      const faceIdx = randomFaceIndexForSymbol(reel, symbol);
+      const baseTarget = -faceIdx * reel.step;
+      const extraTurns = turns + colIdx + rowIdx;
+      const targetDeg = baseTarget - 360 * extraTurns;
+      reel.targetFace = faceIdx;
+      targets.push({
+        targetDeg,
+        reel,
+        faceIdx,
+        symbol,
+        duration: duration + colIdx*150 + rowIdx*90,
+        delay: stagger*colIdx + rowIdx*120,
+        warmup,
+      });
+    });
   });
   return targets;
 }
 
-function evaluateResults(results){
+function evaluateLine(results){
+  if(!Array.isArray(results) || results.length === 0){
+    return {payout:0, highlightIndices:new Set(), label:''};
+  }
+
   const counts = {};
   results.forEach(sym=>{
     counts[sym] = (counts[sym]||0)+1;
@@ -680,7 +742,6 @@ function evaluateResults(results){
   let payout = 0;
   let winningLabel = '';
 
-  // 左からの連続一致
   const firstSymbol = results[0];
   let run = 1;
   for(let i=1;i<results.length;i++){
@@ -697,7 +758,6 @@ function evaluateResults(results){
     }
   }
 
-  // 任意位置（チェリー等）
   Object.entries(state.paytable).forEach(([sym, table])=>{
     if(table[1]){
       const count = counts[sym]||0;
@@ -742,13 +802,32 @@ function evaluateResults(results){
   return {payout, highlightIndices, label: winningLabel};
 }
 
+function evaluateResults(grid){
+  let totalPayout = 0;
+  const highlightKeys = new Set();
+  const labels = [];
+
+  grid.forEach((rowResults, rowIdx)=>{
+    const info = evaluateLine(rowResults);
+    if(info.payout>0){
+      totalPayout += info.payout;
+      info.highlightIndices.forEach(colIdx=>{
+        highlightKeys.add(`${rowIdx}:${colIdx}`);
+      });
+      labels.push(info.label ? `行${rowIdx+1}: ${info.label}` : `行${rowIdx+1}`);
+    }
+  });
+
+  return {payout: totalPayout, highlightKeys, labels};
+}
+
 function highlightFaces(highlights){
-  state.reels.forEach((reel)=>{
+  forEachReel(reel=>{
     reel.faces.forEach(face=>face.classList.remove('winning'));
   });
   if(highlights.size === 0) return;
-  state.reels.forEach((reel, idx)=>{
-    if(!highlights.has(idx)) return;
+  forEachReel((reel, rowIdx, colIdx)=>{
+    if(!highlights.has(`${rowIdx}:${colIdx}`)) return;
     const faceIdx = ((reel.targetFace % reel.faces.length)+reel.faces.length)%reel.faces.length;
     const face = reel.faces[faceIdx];
     if(face){ face.classList.add('winning'); }
@@ -756,7 +835,7 @@ function highlightFaces(highlights){
 }
 
 function clearHighlights(){
-  state.reels.forEach(reel=>{
+  forEachReel(reel=>{
     reel.faces.forEach(face=>face.classList.remove('winning'));
   });
 }
@@ -764,26 +843,32 @@ function clearHighlights(){
 function finishSpin(results, payoutInfo){
   state.spinning = false;
   btnStopAll.disabled = true;
-  state.reels.forEach(r=>r.stopButton.disabled = true);
-  highlightFaces(payoutInfo.highlightIndices);
+  state.columnStopButtons.forEach(btn=>btn.disabled = true);
+  highlightFaces(payoutInfo.highlightKeys);
 
   state.stats.spins += 1;
   state.stats.totalBet += state.bet;
-  let message = `結果: [ ${results.join(' | ')} ]`;
-  const labelText = payoutInfo.label ? ` (${payoutInfo.label})` : '';
+  const formattedLines = results.map(row=>`[ ${row.join(' | ')} ]`);
+  let message = `結果: ${formattedLines.join(' / ')}`;
+  const labels = Array.isArray(payoutInfo.labels) ? payoutInfo.labels : [];
+  const labelText = labels.length ? ` (${labels.join(', ')})` : '';
   if(payoutInfo.payout>0){
     state.stats.wins += 1;
     state.stats.totalPayout += payoutInfo.payout;
     if(payoutInfo.payout > state.stats.maxPayout) state.stats.maxPayout = payoutInfo.payout;
     state.credits += payoutInfo.payout;
     message += ` → ${payoutInfo.payout} クレジット獲得!${labelText}`;
-    const announceBody = payoutInfo.label ? `${payoutInfo.label}が成立し` : 'が揃い';
-    $announce.textContent = `おめでとうございます! ${results.join(' ')} ${announceBody}、${payoutInfo.payout}クレジット獲得です。`;
+    const announceBody = labels.length ? `${labels.join('、')}が成立し` : '役が成立し';
+    $announce.textContent = `おめでとうございます! ${formattedLines.join(' / ')} ${announceBody}、${payoutInfo.payout}クレジット獲得です。`;
   } else {
-    $announce.textContent = `結果は ${results.join(' ')} です。`;
+    $announce.textContent = `結果は ${formattedLines.join(' / ')} です。`;
   }
   $result.textContent = message;
-  state.history.push({results:[...results], payout:payoutInfo.payout, label:payoutInfo.label});
+  state.history.push({
+    results: results.map(row=>row.slice()),
+    payout: payoutInfo.payout,
+    labels: labels.slice(),
+  });
   updateHistory();
   updateCreditsDisplay();
   updateStatsDisplay();
@@ -829,7 +914,7 @@ function startSpin(){
   state.spinning = true;
   btnSpin.disabled = true;
   btnStopAll.disabled = false;
-  state.reels.forEach(r=>r.stopButton.disabled = false);
+  state.columnStopButtons.forEach(btn=>btn.disabled = false);
   state.credits -= state.bet;
   const turns = Math.max(2, Math.min(20, Number(document.getElementById('turns').value)||8));
   const duration = Math.max(400, Math.min(6000, Number(document.getElementById('duration').value)||2200));
@@ -840,20 +925,24 @@ function startSpin(){
   $result.textContent = 'スピン中…';
 
   const results = generateSpinResults();
-  state.lastResults = results;
+  state.lastResults = results.map(row=>row.slice());
   const targets = computeTargets(results, turns, duration, stagger, warmup);
+  const promises = [];
   targets.forEach(t=>{
     animateReelTwoPhase(t.reel, warmup, t.targetDeg, t.duration, t.delay);
+    if(t.reel.promise){ promises.push(t.reel.promise); }
   });
-  Promise.all(state.reels.map(r=>r.promise)).then(()=>{
+  Promise.all(promises).then(()=>{
     const payoutInfo = evaluateResults(results);
     finishSpin(results, payoutInfo);
   });
 }
 
 function stopSequential(){
-  state.reels.forEach((reel, index)=>{
-    if(reel.finishNow) reel.finishNow();
+  state.columnStopButtons.forEach((_, colIdx)=>{
+    setTimeout(()=>{
+      stopColumn(colIdx);
+    }, colIdx * 200);
   });
   btnStopAll.disabled = true;
 }
@@ -898,6 +987,12 @@ btnStopAll.addEventListener('click', stopSequential);
 
 document.getElementById('reelCount').addEventListener('change', (e)=>{
   state.reelCount = Number(e.target.value);
+  buildReels();
+  clearHighlights();
+});
+
+$rowCount.addEventListener('change', (e)=>{
+  state.rowCount = Math.max(1, Number(e.target.value));
   buildReels();
   clearHighlights();
 });
@@ -985,9 +1080,13 @@ window.addEventListener('keydown', (e)=>{
   if(e.repeat) return;
   if(e.code === 'Space'){ e.preventDefault(); btnSpin.click(); }
   if(e.key === 's' || e.key === 'S'){ e.preventDefault(); btnStopAll.click(); }
-  if(['1','2','3','4','5'].includes(e.key)){
-    const idx = Number(e.key)-1;
-    if(state.reels[idx] && state.reels[idx].finishNow){ state.reels[idx].finishNow(); }
+  const digit = Number(e.key);
+  if(Number.isInteger(digit) && digit>=1){
+    const idx = digit - 1;
+    if(idx < state.reelCount){
+      e.preventDefault();
+      stopColumn(idx);
+    }
   }
   if(e.key === 'a' || e.key === 'A'){
     const select = document.getElementById('autoplay');
@@ -1003,14 +1102,19 @@ window.addEventListener('keydown', (e)=>{
 
 // モバイル向け: リールタップで個別停止
 $slots.addEventListener('click', (e)=>{
-  const reelIndex = state.reels.findIndex(r=>r.reel.contains(e.target));
-  if(reelIndex>=0){
-    const reel = state.reels[reelIndex];
-    if(reel.finishNow) reel.finishNow();
+  for(let rowIdx=0; rowIdx<state.reels.length; rowIdx++){
+    for(let colIdx=0; colIdx<state.reels[rowIdx].length; colIdx++){
+      const reel = state.reels[rowIdx][colIdx];
+      if(reel && reel.reel.contains(e.target)){
+        if(reel.finishNow){ reel.finishNow(); }
+        return;
+      }
+    }
   }
 });
 
 function init(){
+  $rowCount.value = String(state.rowCount);
   renderPaytable();
   renderHands();
   buildReels();
