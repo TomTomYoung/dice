@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>物理演算サイコロ - 編集モード対応</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #333;
+    overflow-x: hidden;
+  }
+
+  /* ヘッダー */
+  header {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 20px;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+  }
+
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #667eea;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+
+  /* タブ */
+  .tabs {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .tab-btn {
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: #e0e0e0;
+    color: #666;
+    transition: all 0.3s;
+  }
+
+  .tab-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+
+  .tab-btn:hover:not(.active) {
+    background: #d0d0d0;
+  }
+
+  /* タブコンテンツ */
+  .tab-content {
+    display: none;
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+  }
+
+  .tab-content.active {
+    display: block;
+  }
+
+  /* コントロールパネル */
+  .control-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+  }
+
+  .control-group {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+  }
+
+  .control-group h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #667eea;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .control-item {
+    margin-bottom: 10px;
+  }
+
+  .control-item label {
+    display: block;
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 5px;
+  }
+
+  .control-item input[type="number"],
+  .control-item input[type="text"],
+  .control-item input[type="color"],
+  .control-item select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #d0d0d0;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+
+  .control-item input[type="range"] {
+    width: 100%;
+  }
+
+  .range-value {
+    display: inline-block;
+    min-width: 40px;
+    text-align: right;
+    font-weight: 600;
+    color: #667eea;
+  }
+
+  /* ボタン */
+  .btn-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+  }
+
+  button {
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+  }
+
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+
+  .btn-secondary {
+    background: #64748b;
+    color: white;
+  }
+
+  .btn-secondary:hover {
+    background: #475569;
+  }
+
+  .btn-success {
+    background: #10b981;
+    color: white;
+  }
+
+  .btn-success:hover {
+    background: #059669;
+  }
+
+  /* Canvas */
+  #canvas-container {
+    position: relative;
+    width: 100%;
+    height: 600px;
+    background: linear-gradient(to bottom, #87ceeb 0%, #98d8e8 100%);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* 結果表示 */
+  .results {
+    margin-top: 20px;
+    padding: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+
+  .results h2 {
+    font-size: 18px;
+    color: #667eea;
+    margin-bottom: 15px;
+  }
+
+  .result-main {
+    font-size: 24px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 10px;
+  }
+
+  .result-detail {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 5px;
+  }
+
+  /* 履歴 */
+  .history {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #e0e0e0;
+  }
+
+  .history h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #667eea;
+    margin-bottom: 10px;
+  }
+
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .history-item {
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+
+  /* 面編集UI */
+  .face-editor {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .face-input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .face-input-group label {
+    min-width: 50px;
+    font-weight: 600;
+    color: #667eea;
+  }
+
+  .face-input-group input {
+    flex: 1;
+  }
+
+  /* プリセットボタン */
+  .preset-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  .preset-btn {
+    padding: 10px;
+    background: white;
+    border: 2px solid #667eea;
+    color: #667eea;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.3s;
+  }
+
+  .preset-btn:hover {
+    background: #667eea;
+    color: white;
+  }
+
+  /* レスポンシブ */
+  @media (max-width: 768px) {
+    #canvas-container {
+      height: 400px;
+    }
+
+    .control-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🎲 物理演算サイコロシミュレーター</h1>
+    <p class="subtitle">Three.js + Cannon.js による本格的な物理エンジン搭載</p>
+
+    <!-- タブ -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="play">🎮 プレイ</button>
+      <button class="tab-btn" data-tab="dice">🎨 サイコロ外観</button>
+      <button class="tab-btn" data-tab="faces">✏️ 面の編集</button>
+      <button class="tab-btn" data-tab="throw">🚀 投げ方</button>
+      <button class="tab-btn" data-tab="presets">⭐ プリセット</button>
+    </div>
+
+    <!-- プレイタブ -->
+    <div class="tab-content active" data-content="play">
+      <div class="control-grid">
+        <div class="control-group">
+          <h3>基本設定</h3>
+          <div class="control-item">
+            <label>サイコロの個数</label>
+            <input type="number" id="diceCount" min="1" max="10" value="3">
+          </div>
+          <div class="control-item">
+            <label>重力</label>
+            <input type="range" id="gravity" min="5" max="30" value="15" step="1">
+            <span class="range-value" id="gravityValue">15</span> m/s²
+          </div>
+        </div>
+
+        <div class="control-group">
+          <h3>カメラ操作</h3>
+          <p style="font-size: 12px; color: #666; line-height: 1.5;">
+            • マウスドラッグ: 視点回転<br>
+            • ホイール: ズーム<br>
+            • 右クリックドラッグ: パン
+          </p>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn-primary" id="rollBtn">🎲 サイコロを振る (Space)</button>
+        <button class="btn-secondary" id="resetBtn">🔄 リセット</button>
+        <button class="btn-secondary" id="clearHistoryBtn">🗑️ 履歴クリア</button>
+      </div>
+    </div>
+
+    <!-- サイコロ外観タブ -->
+    <div class="tab-content" data-content="dice">
+      <div class="control-grid">
+        <div class="control-group">
+          <h3>サイコロの色</h3>
+          <div class="control-item">
+            <label>本体の色</label>
+            <input type="color" id="diceColor" value="#ffffff">
+          </div>
+          <div class="control-item">
+            <label>透明度</label>
+            <input type="range" id="diceOpacity" min="0" max="100" value="100" step="5">
+            <span class="range-value" id="diceOpacityValue">100</span>%
+          </div>
+        </div>
+
+        <div class="control-group">
+          <h3>ピップ（点）のスタイル</h3>
+          <div class="control-item">
+            <label>ピップの色</label>
+            <input type="color" id="pipColor" value="#000000">
+          </div>
+          <div class="control-item">
+            <label>ピップの形状</label>
+            <select id="pipShape">
+              <option value="sphere">球体</option>
+              <option value="cylinder">円柱</option>
+              <option value="box">四角</option>
+            </select>
+          </div>
+          <div class="control-item">
+            <label>ピップのサイズ</label>
+            <input type="range" id="pipSize" min="5" max="20" value="10" step="1">
+            <span class="range-value" id="pipSizeValue">10</span>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <h3>材質</h3>
+          <div class="control-item">
+            <label>光沢度</label>
+            <input type="range" id="shininess" min="0" max="100" value="30" step="5">
+            <span class="range-value" id="shininessValue">30</span>
+          </div>
+          <div class="control-item">
+            <label>角の丸み</label>
+            <input type="range" id="roundness" min="0" max="10" value="2" step="1">
+            <span class="range-value" id="roundnessValue">2</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn-success" id="applyStyleBtn">✨ スタイルを適用</button>
+      </div>
+    </div>
+
+    <!-- 面の編集タブ -->
+    <div class="tab-content" data-content="faces">
+      <div class="control-group">
+        <h3>各面のテキスト/記号を編集</h3>
+        <p style="font-size: 12px; color: #666; margin-bottom: 15px;">
+          通常の数字の代わりに、文字や記号、絵文字を設定できます
+        </p>
+        <div class="face-editor">
+          <div class="face-input-group">
+            <label>面1:</label>
+            <input type="text" id="face1" value="1" maxlength="3">
+          </div>
+          <div class="face-input-group">
+            <label>面2:</label>
+            <input type="text" id="face2" value="2" maxlength="3">
+          </div>
+          <div class="face-input-group">
+            <label>面3:</label>
+            <input type="text" id="face3" value="3" maxlength="3">
+          </div>
+          <div class="face-input-group">
+            <label>面4:</label>
+            <input type="text" id="face4" value="4" maxlength="3">
+          </div>
+          <div class="face-input-group">
+            <label>面5:</label>
+            <input type="text" id="face5" value="5" maxlength="3">
+          </div>
+          <div class="face-input-group">
+            <label>面6:</label>
+            <input type="text" id="face6" value="6" maxlength="3">
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn-success" id="applyFacesBtn">✨ 面の設定を適用</button>
+      </div>
+    </div>
+
+    <!-- 投げ方タブ -->
+    <div class="tab-content" data-content="throw">
+      <div class="control-grid">
+        <div class="control-group">
+          <h3>投げる力</h3>
+          <div class="control-item">
+            <label>力の強さ</label>
+            <input type="range" id="throwForce" min="1" max="20" value="8" step="0.5">
+            <span class="range-value" id="throwForceValue">8</span>
+          </div>
+          <div class="control-item">
+            <label>回転の強さ</label>
+            <input type="range" id="throwSpin" min="0" max="20" value="10" step="1">
+            <span class="range-value" id="throwSpinValue">10</span>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <h3>投げる方向</h3>
+          <div class="control-item">
+            <label>横方向のばらつき</label>
+            <input type="range" id="throwSpread" min="0" max="10" value="5" step="0.5">
+            <span class="range-value" id="throwSpreadValue">5</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- プリセットタブ -->
+    <div class="tab-content" data-content="presets">
+      <div class="control-group">
+        <h3>プリセットを選択</h3>
+        <div class="preset-buttons">
+          <button class="preset-btn" data-preset="normal">🎲 通常 (1-6)</button>
+          <button class="preset-btn" data-preset="trump">🃏 トランプ風 (A,K,Q,J,10,9)</button>
+          <button class="preset-btn" data-preset="emoji">😀 絵文字</button>
+          <button class="preset-btn" data-preset="alphabet">🔤 アルファベット (A-F)</button>
+          <button class="preset-btn" data-preset="symbols">🔣 記号</button>
+          <button class="preset-btn" data-preset="zero">⭕ 0-5</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div style="padding: 20px;">
+    <div id="canvas-container"></div>
+
+    <div class="results">
+      <h2>📊 結果</h2>
+      <div id="resultDisplay">
+        <div class="result-main">サイコロを振ってください</div>
+      </div>
+
+      <div class="history">
+        <h3>🕒 ロール履歴</h3>
+        <div class="history-list" id="historyList">
+          <div style="color: #999; font-size: 13px;">まだ履歴がありません</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- Three.js -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<!-- Cannon.js -->
+<script src="https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"></script>
+<!-- OrbitControls -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+(() => {
+  'use strict';
+
+  // ===== グローバル状態 =====
+  const state = {
+    diceCount: 3,
+    gravity: 15,
+    diceColor: '#ffffff',
+    diceOpacity: 1.0,
+    pipColor: '#000000',
+    pipShape: 'sphere',
+    pipSize: 10,
+    shininess: 30,
+    roundness: 2,
+    faceTexts: ['1', '2', '3', '4', '5', '6'],
+    throwForce: 8,
+    throwSpin: 10,
+    throwSpread: 5,
+    isRolling: false,
+    history: []
+  };
+
+  // ===== Three.js / Cannon.js セットアップ =====
+  let scene, camera, renderer, world, controls;
+  let dice = [];
+  let floor;
+
+  const container = document.getElementById('canvas-container');
+
+  function initThreeJS() {
+    // シーン
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb);
+
+    // カメラ
+    camera = new THREE.PerspectiveCamera(
+      45,
+      container.clientWidth / container.clientHeight,
+      0.1,
+      1000
+    );
+    camera.position.set(0, 15, 30);
+    camera.lookAt(0, 0, 0);
+
+    // レンダラー
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    // OrbitControls
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxDistance = 50;
+    controls.minDistance = 10;
+
+    // ライト
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(10, 20, 10);
+    dirLight.castShadow = true;
+    dirLight.shadow.camera.left = -20;
+    dirLight.shadow.camera.right = 20;
+    dirLight.shadow.camera.top = 20;
+    dirLight.shadow.camera.bottom = -20;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+
+    // 床
+    const floorGeometry = new THREE.PlaneGeometry(40, 40);
+    const floorMaterial = new THREE.MeshStandardMaterial({
+      color: 0x2d5016,
+      roughness: 0.8
+    });
+    floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    // リサイズ対応
+    window.addEventListener('resize', onWindowResize, false);
+  }
+
+  function initCannonJS() {
+    // 物理ワールド
+    world = new CANNON.World();
+    world.gravity.set(0, -state.gravity, 0);
+    world.defaultContactMaterial.friction = 0.4;
+    world.defaultContactMaterial.restitution = 0.3;
+
+    // 床の物理ボディ
+    const floorShape = new CANNON.Plane();
+    const floorBody = new CANNON.Body({ mass: 0, shape: floorShape });
+    floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+    world.addBody(floorBody);
+
+    // 壁（境界）を追加
+    const wallMaterial = new CANNON.Material();
+    const wallShape = new CANNON.Plane();
+
+    // 4つの壁
+    const walls = [
+      { x: 0, y: 0, z: -20, rx: 0, ry: 0, rz: 0 },  // 後ろ
+      { x: 0, y: 0, z: 20, rx: 0, ry: Math.PI, rz: 0 },  // 前
+      { x: -20, y: 0, z: 0, rx: 0, ry: Math.PI/2, rz: 0 },  // 左
+      { x: 20, y: 0, z: 0, rx: 0, ry: -Math.PI/2, rz: 0 }   // 右
+    ];
+
+    walls.forEach(w => {
+      const wallBody = new CANNON.Body({ mass: 0, material: wallMaterial });
+      wallBody.addShape(wallShape);
+      wallBody.position.set(w.x, w.y, w.z);
+      wallBody.quaternion.setFromEuler(w.rx, w.ry, w.rz);
+      world.addBody(wallBody);
+    });
+  }
+
+  // ===== サイコロ作成 =====
+  function createDie() {
+    const size = 2;
+    const radius = state.roundness / 100;
+
+    // Three.js メッシュ
+    const geometry = new THREE.BoxGeometry(size, size, size);
+    const material = new THREE.MeshStandardMaterial({
+      color: state.diceColor,
+      transparent: state.diceOpacity < 1,
+      opacity: state.diceOpacity,
+      roughness: (100 - state.shininess) / 100,
+      metalness: 0.1
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    // ピップを追加
+    addPips(mesh, size);
+
+    scene.add(mesh);
+
+    // Cannon.js ボディ
+    const shape = new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2));
+    const body = new CANNON.Body({
+      mass: 1,
+      shape: shape,
+      material: new CANNON.Material()
+    });
+
+    world.addBody(body);
+
+    return { mesh, body };
+  }
+
+  // ===== ピップ（点）を追加 =====
+  function addPips(diceMesh, size) {
+    const pipSize = state.pipSize / 100;
+    const offset = size / 2 + 0.01;
+
+    // ピップジオメトリ
+    let pipGeometry;
+    if (state.pipShape === 'sphere') {
+      pipGeometry = new THREE.SphereGeometry(pipSize, 16, 16);
+    } else if (state.pipShape === 'cylinder') {
+      pipGeometry = new THREE.CylinderGeometry(pipSize, pipSize, pipSize/2, 16);
+    } else {
+      pipGeometry = new THREE.BoxGeometry(pipSize*1.5, pipSize/2, pipSize*1.5);
+    }
+
+    const pipMaterial = new THREE.MeshStandardMaterial({
+      color: state.pipColor,
+      roughness: 0.6
+    });
+
+    // 各面のピップ配置
+    const pipConfigs = [
+      // 面1 (前面, Z+): 1
+      { face: 0, positions: [[0, 0, offset]] },
+      // 面6 (背面, Z-): 6
+      { face: 1, positions: [
+        [-size/3, size/3, -offset], [size/3, size/3, -offset],
+        [-size/3, 0, -offset], [size/3, 0, -offset],
+        [-size/3, -size/3, -offset], [size/3, -size/3, -offset]
+      ]},
+      // 面3 (右側, X+): 3
+      { face: 2, positions: [
+        [offset, size/3, -size/3], [offset, 0, 0], [offset, -size/3, size/3]
+      ]},
+      // 面4 (左側, X-): 4
+      { face: 3, positions: [
+        [-offset, size/3, size/3], [-offset, size/3, -size/3],
+        [-offset, -size/3, size/3], [-offset, -size/3, -size/3]
+      ]},
+      // 面5 (上面, Y+): 5
+      { face: 4, positions: [
+        [-size/3, offset, -size/3], [size/3, offset, -size/3],
+        [0, offset, 0],
+        [-size/3, offset, size/3], [size/3, offset, size/3]
+      ]},
+      // 面2 (下面, Y-): 2
+      { face: 5, positions: [
+        [-size/3, -offset, -size/3], [size/3, -offset, size/3]
+      ]}
+    ];
+
+    // テキスト表示を使う場合はピップの代わりにテキストを表示
+    const useText = state.faceTexts.some(t => !/^\d$/.test(t));
+
+    if (useText) {
+      // テキストモード: Canvas テクスチャを使用
+      const faceValues = [1, 6, 3, 4, 5, 2]; // 各面の値
+      pipConfigs.forEach((config, idx) => {
+        const text = state.faceTexts[faceValues[idx] - 1];
+        addTextToFace(diceMesh, config.positions[0], text, size);
+      });
+    } else {
+      // ピップモード
+      pipConfigs.forEach(config => {
+        config.positions.forEach(pos => {
+          const pip = new THREE.Mesh(pipGeometry, pipMaterial);
+          pip.position.set(pos[0], pos[1], pos[2]);
+
+          // ピップの向きを調整
+          if (Math.abs(pos[2]) > size/3) {
+            // Z軸方向
+            pip.rotation.x = pos[2] > 0 ? 0 : Math.PI;
+          } else if (Math.abs(pos[0]) > size/3) {
+            // X軸方向
+            pip.rotation.y = pos[0] > 0 ? Math.PI/2 : -Math.PI/2;
+            pip.rotation.z = Math.PI/2;
+          } else {
+            // Y軸方向
+            pip.rotation.x = pos[1] > 0 ? Math.PI/2 : -Math.PI/2;
+          }
+
+          diceMesh.add(pip);
+        });
+      });
+    }
+  }
+
+  // ===== 面にテキストを追加 =====
+  function addTextToFace(diceMesh, position, text, size) {
+    // Canvas でテキストを描画
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = state.diceColor;
+    ctx.fillRect(0, 0, 128, 128);
+
+    ctx.fillStyle = state.pipColor;
+    ctx.font = 'bold 80px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 64, 64);
+
+    // テクスチャとして適用
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.MeshStandardMaterial({ map: texture });
+
+    const geo = new THREE.PlaneGeometry(size * 0.8, size * 0.8);
+    const textMesh = new THREE.Mesh(geo, material);
+    textMesh.position.set(position[0], position[1], position[2]);
+
+    // 向きを調整
+    if (Math.abs(position[2]) > size/3) {
+      textMesh.rotation.x = position[2] > 0 ? 0 : Math.PI;
+    } else if (Math.abs(position[0]) > size/3) {
+      textMesh.rotation.y = position[0] > 0 ? Math.PI/2 : -Math.PI/2;
+    } else {
+      textMesh.rotation.x = position[1] > 0 ? Math.PI/2 : -Math.PI/2;
+    }
+
+    diceMesh.add(textMesh);
+  }
+
+  // ===== サイコロをリセット =====
+  function resetDice() {
+    // 既存のサイコロを削除
+    dice.forEach(die => {
+      scene.remove(die.mesh);
+      world.removeBody(die.body);
+    });
+    dice = [];
+
+    // 新しいサイコロを作成
+    const count = state.diceCount;
+    for (let i = 0; i < count; i++) {
+      const die = createDie();
+
+      // 初期位置（上空にランダム配置）
+      const x = (Math.random() - 0.5) * 10;
+      const y = 10 + Math.random() * 5;
+      const z = (Math.random() - 0.5) * 10;
+
+      die.body.position.set(x, y, z);
+      die.mesh.position.copy(die.body.position);
+
+      // 初期回転
+      const quat = new CANNON.Quaternion();
+      quat.setFromEuler(
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2
+      );
+      die.body.quaternion.copy(quat);
+      die.mesh.quaternion.copy(die.body.quaternion);
+
+      dice.push(die);
+    }
+
+    state.isRolling = false;
+  }
+
+  // ===== サイコロを振る =====
+  function rollDice() {
+    if (state.isRolling) return;
+    state.isRolling = true;
+
+    dice.forEach((die, i) => {
+      // 位置をリセット
+      const x = (Math.random() - 0.5) * 8;
+      const y = 10 + Math.random() * 3;
+      const z = (Math.random() - 0.5) * 8;
+      die.body.position.set(x, y, z);
+      die.body.velocity.set(0, 0, 0);
+      die.body.angularVelocity.set(0, 0, 0);
+
+      // 回転をランダムに
+      const quat = new CANNON.Quaternion();
+      quat.setFromEuler(
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2
+      );
+      die.body.quaternion.copy(quat);
+
+      // 力を加える
+      const force = state.throwForce;
+      const spread = state.throwSpread;
+      const fx = (Math.random() - 0.5) * spread;
+      const fy = -force;
+      const fz = (Math.random() - 0.5) * spread;
+      die.body.applyImpulse(new CANNON.Vec3(fx, fy, fz), die.body.position);
+
+      // 回転を加える
+      const spin = state.throwSpin;
+      die.body.angularVelocity.set(
+        (Math.random() - 0.5) * spin,
+        (Math.random() - 0.5) * spin,
+        (Math.random() - 0.5) * spin
+      );
+    });
+
+    // 3秒後に結果を判定
+    setTimeout(() => {
+      const results = getDiceResults();
+      displayResults(results);
+      state.isRolling = false;
+    }, 3000);
+  }
+
+  // ===== 出目判定 =====
+  function getDiceResults() {
+    const results = [];
+
+    dice.forEach(die => {
+      // サイコロの上向きベクトルを取得
+      const upVector = new CANNON.Vec3(0, 1, 0);
+      const worldUp = die.body.quaternion.vmult(upVector);
+
+      // 各面の法線ベクトル（ローカル座標系）
+      const faceNormals = [
+        new CANNON.Vec3(0, 0, 1),   // 面1 (前)
+        new CANNON.Vec3(0, 0, -1),  // 面6 (後)
+        new CANNON.Vec3(1, 0, 0),   // 面3 (右)
+        new CANNON.Vec3(-1, 0, 0),  // 面4 (左)
+        new CANNON.Vec3(0, 1, 0),   // 面5 (上)
+        new CANNON.Vec3(0, -1, 0)   // 面2 (下)
+      ];
+
+      const faceValues = [1, 6, 3, 4, 5, 2];
+
+      // 上を向いている面を探す
+      let maxDot = -Infinity;
+      let topFace = 1;
+
+      faceNormals.forEach((normal, idx) => {
+        const worldNormal = die.body.quaternion.vmult(normal);
+        const dot = worldNormal.dot(new CANNON.Vec3(0, 1, 0));
+        if (dot > maxDot) {
+          maxDot = dot;
+          topFace = faceValues[idx];
+        }
+      });
+
+      results.push(topFace);
+    });
+
+    return results;
+  }
+
+  // ===== 結果表示 =====
+  function displayResults(results) {
+    const total = results.reduce((sum, v) => {
+      const num = parseInt(state.faceTexts[v - 1]);
+      return sum + (isNaN(num) ? 0 : num);
+    }, 0);
+
+    const displayValues = results.map(v => state.faceTexts[v - 1]);
+
+    const resultDisplay = document.getElementById('resultDisplay');
+    resultDisplay.innerHTML = `
+      <div class="result-main">合計: ${total || displayValues.join(' + ')}</div>
+      <div class="result-detail">出目: ${displayValues.join(', ')}</div>
+      <div class="result-detail">個数: ${results.length}個</div>
+    `;
+
+    // 履歴に追加
+    const timestamp = new Date().toLocaleTimeString('ja-JP');
+    state.history.unshift({
+      time: timestamp,
+      results: displayValues,
+      total: total
+    });
+
+    // 履歴は最大20件
+    if (state.history.length > 20) {
+      state.history.pop();
+    }
+
+    updateHistoryDisplay();
+  }
+
+  // ===== 履歴表示更新 =====
+  function updateHistoryDisplay() {
+    const historyList = document.getElementById('historyList');
+
+    if (state.history.length === 0) {
+      historyList.innerHTML = '<div style="color: #999; font-size: 13px;">まだ履歴がありません</div>';
+      return;
+    }
+
+    historyList.innerHTML = state.history.map(h => `
+      <div class="history-item">
+        <strong>${h.time}</strong> - ${h.results.join(', ')}
+        ${h.total ? `(合計: ${h.total})` : ''}
+      </div>
+    `).join('');
+  }
+
+  // ===== アニメーションループ =====
+  function animate() {
+    requestAnimationFrame(animate);
+
+    // 物理演算を進める
+    world.step(1/60);
+
+    // Three.jsメッシュの位置・回転を更新
+    dice.forEach(die => {
+      die.mesh.position.copy(die.body.position);
+      die.mesh.quaternion.copy(die.body.quaternion);
+    });
+
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  // ===== リサイズ対応 =====
+  function onWindowResize() {
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
+  }
+
+  // ===== UI イベント =====
+
+  // タブ切り替え
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+      btn.classList.add('active');
+      document.querySelector(`[data-content="${tab}"]`).classList.add('active');
+    });
+  });
+
+  // レンジスライダーの値表示
+  const rangeInputs = [
+    { id: 'gravity', valueId: 'gravityValue', stateProp: 'gravity' },
+    { id: 'diceOpacity', valueId: 'diceOpacityValue', stateProp: 'diceOpacity', transform: v => v/100 },
+    { id: 'pipSize', valueId: 'pipSizeValue', stateProp: 'pipSize' },
+    { id: 'shininess', valueId: 'shininessValue', stateProp: 'shininess' },
+    { id: 'roundness', valueId: 'roundnessValue', stateProp: 'roundness' },
+    { id: 'throwForce', valueId: 'throwForceValue', stateProp: 'throwForce' },
+    { id: 'throwSpin', valueId: 'throwSpinValue', stateProp: 'throwSpin' },
+    { id: 'throwSpread', valueId: 'throwSpreadValue', stateProp: 'throwSpread' }
+  ];
+
+  rangeInputs.forEach(input => {
+    const el = document.getElementById(input.id);
+    const valEl = document.getElementById(input.valueId);
+
+    el.addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      valEl.textContent = value;
+      state[input.stateProp] = input.transform ? input.transform(value) : value;
+
+      if (input.id === 'gravity') {
+        world.gravity.set(0, -value, 0);
+      }
+    });
+  });
+
+  // 色変更
+  document.getElementById('diceColor').addEventListener('change', (e) => {
+    state.diceColor = e.target.value;
+  });
+
+  document.getElementById('pipColor').addEventListener('change', (e) => {
+    state.pipColor = e.target.value;
+  });
+
+  document.getElementById('pipShape').addEventListener('change', (e) => {
+    state.pipShape = e.target.value;
+  });
+
+  // サイコロ個数
+  document.getElementById('diceCount').addEventListener('change', (e) => {
+    state.diceCount = Math.max(1, Math.min(10, parseInt(e.target.value) || 1));
+    resetDice();
+  });
+
+  // ボタン
+  document.getElementById('rollBtn').addEventListener('click', rollDice);
+  document.getElementById('resetBtn').addEventListener('click', resetDice);
+  document.getElementById('clearHistoryBtn').addEventListener('click', () => {
+    state.history = [];
+    updateHistoryDisplay();
+  });
+
+  // スタイル適用
+  document.getElementById('applyStyleBtn').addEventListener('click', () => {
+    resetDice();
+    alert('✨ スタイルを適用しました！');
+  });
+
+  // 面のテキスト適用
+  document.getElementById('applyFacesBtn').addEventListener('click', () => {
+    for (let i = 1; i <= 6; i++) {
+      const input = document.getElementById(`face${i}`);
+      state.faceTexts[i - 1] = input.value || i.toString();
+    }
+    resetDice();
+    alert('✨ 面の設定を適用しました！');
+  });
+
+  // プリセット
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.preset;
+
+      const presets = {
+        normal: ['1', '2', '3', '4', '5', '6'],
+        trump: ['A', 'K', 'Q', 'J', '10', '9'],
+        emoji: ['😀', '😎', '🎉', '❤️', '⭐', '🔥'],
+        alphabet: ['A', 'B', 'C', 'D', 'E', 'F'],
+        symbols: ['○', '△', '□', '◇', '☆', '♪'],
+        zero: ['0', '1', '2', '3', '4', '5']
+      };
+
+      if (presets[preset]) {
+        state.faceTexts = presets[preset];
+        for (let i = 1; i <= 6; i++) {
+          document.getElementById(`face${i}`).value = state.faceTexts[i - 1];
+        }
+        resetDice();
+        alert(`✨ プリセット「${btn.textContent}」を適用しました！`);
+      }
+    });
+  });
+
+  // スペースキーで振る
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && !state.isRolling) {
+      e.preventDefault();
+      rollDice();
+    }
+  });
+
+  // ===== 初期化 =====
+  initThreeJS();
+  initCannonJS();
+  resetDice();
+  animate();
+
+})();
+</script>
+</body>
+</html>
