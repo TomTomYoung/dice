@@ -1,0 +1,766 @@
+%%html
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>スロットマシン（拡張版）</title>
+<style>
+  :root {
+    --bg:#06070d; --fg:#f8fafc; --muted:#94a3b8; --acc:#7aa2f7; --acc2:#f5b97f;
+    --card:#111522; --border:#1f2937; --radius:14px;
+    --reel-w:120px; --reel-h:168px;
+  }
+  @media (max-width: 720px) {
+    :root { --reel-w:96px; --reel-h:140px; }
+  }
+  @media (max-width: 540px) {
+    :root { --reel-w:82px; --reel-h:120px; }
+  }
+  html,body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.6 "Segoe UI",system-ui,"Hiragino Sans","Noto Sans JP",sans-serif; }
+  h1 { font-size:1.8rem; margin:0 0 6px; letter-spacing:0.04em; }
+  .app { max-width:1100px; margin:20px auto 48px; padding:0 18px 32px; }
+  .layout { display:grid; gap:18px; grid-template-columns:1.35fr 1fr; }
+  @media (max-width: 960px) {
+    .layout { grid-template-columns:1fr; }
+  }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; position:relative; overflow:hidden; }
+  .card h2 { margin:0 0 10px; font-size:1.15rem; letter-spacing:0.03em; }
+  .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  .controls label { display:flex; gap:6px; align-items:center; background:rgba(15,23,42,.35); padding:6px 10px; border-radius:12px; border:1px solid rgba(148,163,184,.12); }
+  .controls select,
+  .controls button,
+  .controls input { background:#0d121d; border:1px solid rgba(148,163,184,.22); color:var(--fg); padding:6px 10px; border-radius:10px; font:inherit; }
+  .controls button { cursor:pointer; transition:transform .2s ease, box-shadow .2s ease; }
+  .controls button:not(:disabled):hover { transform:translateY(-1px); box-shadow:0 8px 18px rgba(122,162,247,.18); }
+  .controls button:disabled { opacity:.45; cursor:not-allowed; }
+  .stage { position:relative; border-radius:20px; border:1px solid rgba(148,163,184,.18); padding:28px 18px 34px; background:radial-gradient(circle at 50% 20%, rgba(124,165,255,.18), transparent 62%), linear-gradient(135deg, #0c111d 10%, #151c2b 55%, #0b0f19 100%); box-shadow:0 0 35px rgba(10,12,18,.8), 0 18px 34px rgba(8,10,16,.35); }
+  .stage::before { content:""; position:absolute; inset:-20%; background:radial-gradient(circle, rgba(255,255,255,.12), transparent 66%); opacity:.12; transform:scale(1.4); z-index:0; animation:spotlight 5s ease-in-out infinite; }
+  @keyframes spotlight {
+    0%,100% { transform:translate(-6%, -4%) scale(1.4); opacity:.12; }
+    50% { transform:translate(6%, 4%) scale(1.45); opacity:.2; }
+  }
+  .slots { position:relative; display:flex; justify-content:center; gap:22px; z-index:2; }
+  .reel-wrap { width:var(--reel-w); height:var(--reel-h); border-radius:16px; overflow:hidden; position:relative; background:linear-gradient(#04060b,#111625); box-shadow:inset 0 0 0 1px rgba(122,162,247,.06), 0 14px 40px rgba(0,0,0,.55); }
+  .reel-wrap::after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(to bottom, rgba(2,3,5,.85), transparent 28%, transparent 72%, rgba(3,5,9,.82)); }
+  .reel { width:100%; height:100%; position:relative; transform-style:preserve-3d; will-change:transform; }
+  .face { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:2rem; font-weight:700; letter-spacing:1px; color:#f9fafb; text-shadow:0 2px 6px rgba(0,0,0,.5); background:radial-gradient(115% 120% at 50% -15%, rgba(124,165,255,.65), rgba(20,28,46,1) 58%); border-radius:16px; border:1px solid rgba(148,163,184,.16); box-shadow:inset 0 1px 0 rgba(255,255,255,.1), 0 12px 24px rgba(5,9,16,.65); backface-visibility:hidden; transition:transform .3s ease, box-shadow .3s ease; }
+  .face small { font-size:.75rem; color:rgba(241,245,249,.78); text-transform:uppercase; letter-spacing:.2em; }
+  .face.winning { animation:glow .7s ease-in-out infinite alternate; box-shadow:0 0 24px rgba(124,165,255,.85); }
+  @keyframes glow { from { filter:drop-shadow(0 0 12px rgba(124,165,255,.55)); } to { filter:drop-shadow(0 0 26px rgba(245,185,127,.8)); } }
+  .arm-line { position:absolute; left:22px; right:22px; top:50%; height:0; border-top:2px dashed rgba(122,162,247,.18); z-index:1; }
+  .result { margin-top:18px; text-align:center; font-size:1.05rem; letter-spacing:.03em; min-height:1.2em; }
+  .credits { display:flex; gap:22px; align-items:center; flex-wrap:wrap; font-size:1.05rem; }
+  .credits strong { font-size:1.3rem; color:var(--acc); }
+  .panel { display:flex; flex-direction:column; gap:12px; }
+  .panel .row { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; }
+  .paytable { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; }
+  .paytable div { background:rgba(15,23,42,.6); padding:10px; border-radius:12px; border:1px solid rgba(122,162,247,.18); box-shadow:inset 0 1px 0 rgba(255,255,255,.05); }
+  .paytable h3 { margin:0 0 4px; font-size:.95rem; color:var(--acc2); }
+  .paytable ul { margin:0; padding-left:18px; color:var(--muted); font-size:.85rem; }
+  .history { max-height:220px; overflow:auto; border-radius:12px; border:1px solid rgba(148,163,184,.12); background:rgba(8,11,19,.55); padding:10px 12px; font-size:.9rem; }
+  .history ul { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px; }
+  .history li { display:flex; justify-content:space-between; gap:12px; background:rgba(14,20,33,.6); padding:8px 10px; border-radius:10px; border:1px solid rgba(122,162,247,.14); }
+  .history span.win { color:#facc15; font-weight:600; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; }
+  .stat { background:rgba(15,23,42,.6); border-radius:12px; padding:10px 12px; border:1px solid rgba(122,162,247,.12); }
+  .stat dt { font-size:.75rem; text-transform:uppercase; letter-spacing:.16em; color:var(--muted); }
+  .stat dd { margin:4px 0 0; font-size:1.05rem; font-weight:600; }
+  .stop-buttons { margin-top:18px; display:flex; justify-content:center; gap:12px; flex-wrap:wrap; }
+  .stop-buttons button { min-width:96px; }
+  .autoplay-indicator { margin-left:auto; color:var(--acc2); font-size:.9rem; }
+  .muted { color:var(--muted); }
+  #announce { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="card" style="margin-bottom:18px;">
+    <h1>CSS3D スロットマシン - 完全版</h1>
+    <p class="muted" style="margin:6px 0 0;">リール数やオートプレイ、配当判定・クレジット管理までを備えた拡張版デモです。演出用のウォームアップ回転 → 本スピンの二段制御を継承しつつ、UI/UX を大幅強化しました。</p>
+  </header>
+
+  <div class="layout">
+    <section class="card" aria-label="ゲーム画面">
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="row controls">
+          <button id="spin">スピン (Space)</button>
+          <button id="stopAll" disabled>順次ストップ (S)</button>
+          <label>リール数
+            <select id="reelCount">
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+          </label>
+          <label>ベット
+            <select id="bet">
+              <option value="10">10</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+          <label>図柄セット
+            <select id="symbolsPreset">
+              <option value="classic">クラシック</option>
+              <option value="fruits">フルーツ</option>
+              <option value="numbers">ナンバー</option>
+            </select>
+          </label>
+          <button id="applySymbols">適用</button>
+          <button id="reset">リセット</button>
+        </div>
+        <div class="row controls">
+          <label>ウォームアップ回転
+            <input id="warmup" type="number" min="0" max="20" value="6" style="width:64px;">
+          </label>
+          <label>本スピン時間(ms)
+            <input id="duration" type="number" min="400" max="6000" value="2200" style="width:80px;">
+          </label>
+          <label>リール間遅延(ms)
+            <input id="stagger" type="number" min="0" max="1500" value="220" style="width:80px;">
+          </label>
+          <label>回転係数
+            <input id="turns" type="number" min="2" max="20" value="8" style="width:64px;">
+          </label>
+          <label>オートプレイ
+            <select id="autoplay">
+              <option value="0">オフ</option>
+              <option value="10">10回</option>
+              <option value="25">25回</option>
+              <option value="50">50回</option>
+              <option value="-1">∞</option>
+            </select>
+          </label>
+        </div>
+        <div class="credits" role="status" aria-live="polite">
+          <div>クレジット: <strong id="credits">1000</strong></div>
+          <div>ベット: <strong id="betDisplay">10</strong></div>
+          <div class="autoplay-indicator" id="autoplayStatus">オートプレイ: オフ</div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="arm-line"></div>
+        <div class="slots" id="slots"></div>
+        <div class="stop-buttons" id="stopButtons"></div>
+        <div class="result" id="result">—</div>
+        <div id="announce" role="status" aria-live="assertive"></div>
+      </div>
+    </section>
+
+    <aside class="card" aria-label="情報パネル">
+      <h2>配当テーブル</h2>
+      <div class="paytable" id="paytable"></div>
+      <div class="sep" style="height:1px;background:rgba(122,162,247,.16);margin:18px 0;"></div>
+      <div class="stats" id="stats">
+        <div class="stat"><dt>総スピン</dt><dd id="statSpins">0</dd></div>
+        <div class="stat"><dt>勝利回数</dt><dd id="statWins">0</dd></div>
+        <div class="stat"><dt>勝率</dt><dd id="statWinRate">0%</dd></div>
+        <div class="stat"><dt>最大配当</dt><dd id="statMaxPayout">0</dd></div>
+        <div class="stat"><dt>平均配当</dt><dd id="statAvgPayout">0</dd></div>
+        <div class="stat"><dt>還元率 (RTP)</dt><dd id="statRTP">0%</dd></div>
+      </div>
+      <div class="sep" style="height:1px;background:rgba(122,162,247,.16);margin:18px 0;"></div>
+      <div class="history" aria-live="polite" aria-label="直近の履歴">
+        <strong style="display:block;margin-bottom:6px;">履歴 (最新10件)</strong>
+        <ul id="history"></ul>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+const PRESETS = {
+  classic: ["BAR","7","🍒","🔔","🍋","🍉","⭐","🍇","🍊","💎","🍀"],
+  fruits:  ["🍒","🍋","🍎","🍇","🍓","🍉","🍍","🥝","🍑","🍊","⭐","💎"],
+  numbers: ["1","2","3","4","5","6","7","8","9","★","◎","◇"],
+};
+
+const PAYTABLE = {
+  BAR: {3:500,4:800,5:1500},
+  "7": {2:120,3:777,4:1200,5:2500},
+  "🍒": {1:5,2:30,3:180,4:360,5:720},
+  "🔔": {3:160,4:320,5:640},
+  "🍋": {3:80,4:160,5:320},
+  "🍉": {3:120,4:240,5:480},
+  "⭐": {3:260,4:520,5:1040},
+  "💎": {3:200,4:400,5:800},
+};
+
+const WEIGHTS = {
+  BAR:2,
+  "7":1,
+  "🍒":10,
+  "🔔":6,
+  "🍋":8,
+  "🍉":6,
+  "⭐":4,
+  "🍇":6,
+  "🍊":6,
+  "💎":4,
+  "🍀":3,
+  "1":8,"2":8,"3":8,"4":8,"5":7,"6":6,"7":3,"8":5,"9":4,"★":3,"◎":4,"◇":4,
+};
+
+const state = {
+  reelCount: 3,
+  symbols: PRESETS.classic.slice(),
+  faces: 14,
+  reels: [],
+  credits: 1000,
+  bet: 10,
+  spinning: false,
+  autoPlay: {mode:0, remaining:0, active:false},
+  lastResults: [],
+  history: [],
+  stats: {spins:0,wins:0,totalBet:0,totalPayout:0,maxPayout:0},
+};
+
+const $slots = document.getElementById('slots');
+const $stopButtons = document.getElementById('stopButtons');
+const $result = document.getElementById('result');
+const $credits = document.getElementById('credits');
+const $betDisplay = document.getElementById('betDisplay');
+const $paytable = document.getElementById('paytable');
+const $history = document.getElementById('history');
+const $announce = document.getElementById('announce');
+const $autoplayStatus = document.getElementById('autoplayStatus');
+
+const btnSpin = document.getElementById('spin');
+const btnStopAll = document.getElementById('stopAll');
+
+function weightedRandomSymbol(){
+  const pool = state.symbols;
+  let total = 0;
+  pool.forEach(sym=>{
+    const weightKey = WEIGHTS[sym] ?? 5;
+    total += weightKey;
+  });
+  let r = Math.random()*total;
+  for(const sym of pool){
+    const weightKey = WEIGHTS[sym] ?? 5;
+    r -= weightKey;
+    if(r <= 0){ return sym; }
+  }
+  return pool[pool.length-1];
+}
+
+function renderPaytable(){
+  $paytable.innerHTML = '';
+  const relevantSymbols = state.symbols.filter(sym=>PAYTABLE[sym]);
+  const entries = relevantSymbols.length ? relevantSymbols : Object.keys(PAYTABLE);
+  Array.from(new Set(entries)).forEach(symbol=>{
+    const payouts = PAYTABLE[symbol];
+    if(!payouts) return;
+    const wrap = document.createElement('div');
+    const title = document.createElement('h3');
+    title.textContent = `${symbol}`;
+    wrap.appendChild(title);
+    const list = document.createElement('ul');
+    Object.keys(payouts).sort((a,b)=>Number(b)-Number(a)).forEach(k=>{
+      const li = document.createElement('li');
+      if(Number(k) === 1){
+        li.textContent = `任意位置に${k}個 → ${payouts[k]} クレジット`;
+      } else {
+        li.textContent = `${k}個揃い → ${payouts[k]} クレジット`;
+      }
+      list.appendChild(li);
+    });
+    wrap.appendChild(list);
+    $paytable.appendChild(wrap);
+  });
+}
+
+function buildReels(){
+  $slots.innerHTML='';
+  $stopButtons.innerHTML='';
+  state.reels.length = 0;
+  const facesCount = Math.max(12, state.symbols.length*1.5|0);
+  state.faces = facesCount;
+  for(let r=0;r<state.reelCount;r++){
+    const wrap = document.createElement('div');
+    wrap.className='reel-wrap';
+    const reel = document.createElement('div');
+    reel.className='reel';
+    wrap.appendChild(reel);
+    $slots.appendChild(wrap);
+
+    const H = parseFloat(getComputedStyle(wrap).height);
+    const step = 360 / facesCount;
+    const radius = H/2 / Math.tan(Math.PI / facesCount);
+
+    const faces=[];
+    const indexMap = new Map();
+    for(let i=0;i<facesCount;i++){
+      const face = document.createElement('div');
+      face.className='face';
+      const sym = state.symbols[i % state.symbols.length];
+      face.textContent = sym;
+      face.setAttribute('data-symbol', sym);
+      const rot=i*step;
+      face.style.transform=`rotateX(${rot}deg) translateZ(${radius.toFixed(2)}px)`;
+      reel.appendChild(face);
+      faces.push(face);
+      if(!indexMap.has(sym)) indexMap.set(sym, []);
+      indexMap.get(sym).push(i);
+    }
+
+    const reelObj = {wrap,reel,faces,step,radius,turn:0,spinning:false,promise:null,finishNow:null,indexMap,targetFace:0};
+    state.reels.push(reelObj);
+
+    const btn = document.createElement('button');
+    btn.textContent = `${['左','中','右','第4','第5'][r] || `#${r+1}`}ストップ`;
+    btn.disabled = true;
+    btn.onclick = ()=>{
+      if(reelObj.finishNow) reelObj.finishNow();
+    };
+    $stopButtons.appendChild(btn);
+    reelObj.stopButton = btn;
+  }
+}
+
+function updateCreditsDisplay(){
+  $credits.textContent = state.credits;
+  $betDisplay.textContent = state.bet;
+  btnSpin.disabled = state.spinning || state.credits < state.bet;
+}
+
+function updateAutoplayStatus(){
+  const mode = state.autoPlay.mode;
+  if(!state.autoPlay.active || mode === 0){
+    $autoplayStatus.textContent = 'オートプレイ: オフ';
+    return;
+  }
+  if(mode === -1){
+    $autoplayStatus.textContent = 'オートプレイ: ∞ 進行中';
+  } else {
+    $autoplayStatus.textContent = `オートプレイ残り: ${state.autoPlay.remaining}`;
+  }
+}
+
+function updateStatsDisplay(){
+  const {spins,wins,totalBet,totalPayout,maxPayout} = state.stats;
+  document.getElementById('statSpins').textContent = spins;
+  document.getElementById('statWins').textContent = wins;
+  document.getElementById('statWinRate').textContent = spins ? `${(wins/spins*100).toFixed(1)}%` : '0%';
+  document.getElementById('statMaxPayout').textContent = maxPayout;
+  document.getElementById('statAvgPayout').textContent = spins ? (totalPayout/spins).toFixed(1) : '0';
+  document.getElementById('statRTP').textContent = totalBet ? `${(totalPayout/totalBet*100).toFixed(1)}%` : '0%';
+}
+
+function updateHistory(){
+  $history.innerHTML='';
+  state.history.slice(-10).reverse().forEach(entry=>{
+    const li = document.createElement('li');
+    const resultSpan = document.createElement('span');
+    resultSpan.textContent = `${entry.results.join(' | ')}`;
+    const payoutSpan = document.createElement('span');
+    payoutSpan.textContent = entry.payout ? `+${entry.payout}` : '0';
+    if(entry.payout>0){ payoutSpan.classList.add('win'); }
+    li.appendChild(resultSpan);
+    li.appendChild(payoutSpan);
+    $history.appendChild(li);
+  });
+}
+
+function randomFaceIndexForSymbol(reel, symbol){
+  const indices = reel.indexMap.get(symbol);
+  if(!indices || indices.length === 0){
+    return Math.floor(Math.random()*reel.faces.length);
+  }
+  return indices[Math.floor(Math.random()*indices.length)];
+}
+
+function animateReelTwoPhase(reel, warmupTurns, finalTargetDeg, finalDuration, delay){
+  reel.spinning = true;
+  reel.stopButton.disabled = false;
+  let resolveFn; reel.promise = new Promise(res=>resolveFn=res);
+  let skipWarmup = false;
+  let accelerate = false;
+  let accelerateApplied = false;
+  let mainStarted = false;
+  let delayStart = null;
+  let warmupStart = null;
+  let finalStart = null;
+  let currentDuration = finalDuration;
+  const startDeg = reel.turn;
+  const warmupTarget = startDeg - 360 * warmupTurns;
+  const warmupPerTurnMs = 200;
+  const warmupDuration = Math.max(200, warmupTurns * warmupPerTurnMs);
+
+  reel.finishNow = ()=>{
+    if(!mainStarted){
+      skipWarmup = true;
+    } else {
+      accelerate = true;
+    }
+  };
+
+  function mainStep(ts){
+    if(finalStart === null){ finalStart = ts; }
+    if(accelerate && !accelerateApplied){
+      const elapsed = ts - finalStart;
+      const progress = Math.min(1, elapsed / currentDuration);
+      currentDuration = Math.min(currentDuration, 420);
+      finalStart = ts - progress * currentDuration;
+      accelerateApplied = true;
+    }
+    const elapsed = ts - finalStart;
+    const progress = Math.min(1, elapsed / currentDuration);
+    const eased = 1 - Math.pow(1-progress,3);
+    const deg = startDeg + (finalTargetDeg - startDeg) * eased;
+    reel.turn = deg;
+    reel.reel.style.transform = `rotateX(${deg}deg)`;
+    if(progress < 1){
+      reel.raf = requestAnimationFrame(mainStep);
+    } else {
+      reel.spinning = false;
+      reel.turn = finalTargetDeg;
+      reel.reel.style.transform = `rotateX(${finalTargetDeg}deg)`;
+      reel.stopButton.disabled = true;
+      reel.finishNow = null;
+      resolveFn();
+    }
+  }
+
+  function warmupStep(ts){
+    if(skipWarmup){
+      mainStarted = true;
+      reel.turn = startDeg;
+      reel.reel.style.transform = `rotateX(${startDeg}deg)`;
+      reel.raf = requestAnimationFrame(mainStep);
+      return;
+    }
+    if(warmupStart === null){ warmupStart = ts; }
+    const elapsed = ts - warmupStart;
+    const progress = Math.min(1, elapsed / warmupDuration);
+    const deg = startDeg + (warmupTarget - startDeg) * progress;
+    reel.turn = deg;
+    reel.reel.style.transform = `rotateX(${deg}deg)`;
+    if(progress < 1){
+      reel.raf = requestAnimationFrame(warmupStep);
+    } else {
+      mainStarted = true;
+      reel.turn = startDeg;
+      reel.reel.style.transform = `rotateX(${startDeg}deg)`;
+      reel.raf = requestAnimationFrame(mainStep);
+    }
+  }
+
+  function startAnimation(ts){
+    if(delayStart === null){ delayStart = ts; }
+    if(delay && ts - delayStart < delay){
+      reel.raf = requestAnimationFrame(startAnimation);
+      return;
+    }
+    if(warmupTurns>0){
+      reel.raf = requestAnimationFrame(warmupStep);
+    } else {
+      mainStarted = true;
+      finalStart = null;
+      reel.raf = requestAnimationFrame(mainStep);
+    }
+  }
+
+  reel.raf = requestAnimationFrame(startAnimation);
+}
+
+function generateSpinResults(){
+  const results = [];
+  for(let i=0;i<state.reelCount;i++){
+    results.push(weightedRandomSymbol());
+  }
+  return results;
+}
+
+function computeTargets(results, turns, duration, stagger, warmup){
+  const targets = [];
+  results.forEach((symbol, index)=>{
+    const reel = state.reels[index];
+    const faceIdx = randomFaceIndexForSymbol(reel, symbol);
+    const baseTarget = -faceIdx * reel.step;
+    const extraTurns = turns + index;
+    const targetDeg = baseTarget - 360 * extraTurns;
+    reel.targetFace = faceIdx;
+    targets.push({targetDeg, reel, faceIdx, symbol, duration: duration + index*150, delay: stagger*index, warmup});
+  });
+  return targets;
+}
+
+function evaluateResults(results){
+  const counts = {};
+  results.forEach(sym=>{
+    counts[sym] = (counts[sym]||0)+1;
+  });
+  const allSame = results.every(s=>s===results[0]);
+  const highlightIndices = new Set();
+  let payout = 0;
+
+  // 左からの連続一致
+  const firstSymbol = results[0];
+  let run = 1;
+  for(let i=1;i<results.length;i++){
+    if(results[i] === firstSymbol){ run++; }
+    else break;
+  }
+  if(PAYTABLE[firstSymbol]){
+    const pay = PAYTABLE[firstSymbol][run];
+    if(pay){
+      payout = Math.max(payout, pay);
+      highlightIndices.clear();
+      for(let i=0;i<run;i++){ highlightIndices.add(i); }
+    }
+  }
+
+  // 任意位置（チェリー等）
+  Object.entries(PAYTABLE).forEach(([sym, table])=>{
+    if(table[1]){
+      const count = counts[sym]||0;
+      const keys = Object.keys(table).map(Number).filter(k=>k<=count);
+      if(keys.length){
+        const best = keys.reduce((a,b)=>a>b?a:b);
+        if(table[best] > payout){
+          payout = table[best];
+          highlightIndices.clear();
+          results.forEach((s,i)=>{ if(s===sym) highlightIndices.add(i); });
+        }
+      }
+    }
+  });
+
+  if(allSame && PAYTABLE[firstSymbol]){
+    const pay = PAYTABLE[firstSymbol][results.length];
+    if(pay && pay >= payout){
+      payout = pay;
+      highlightIndices.clear();
+      results.forEach((s,i)=>highlightIndices.add(i));
+    }
+  }
+
+  return {payout, highlightIndices};
+}
+
+function highlightFaces(highlights){
+  state.reels.forEach((reel)=>{
+    reel.faces.forEach(face=>face.classList.remove('winning'));
+  });
+  if(highlights.size === 0) return;
+  state.reels.forEach((reel, idx)=>{
+    if(!highlights.has(idx)) return;
+    const faceIdx = ((reel.targetFace % reel.faces.length)+reel.faces.length)%reel.faces.length;
+    const face = reel.faces[faceIdx];
+    if(face){ face.classList.add('winning'); }
+  });
+}
+
+function clearHighlights(){
+  state.reels.forEach(reel=>{
+    reel.faces.forEach(face=>face.classList.remove('winning'));
+  });
+}
+
+function finishSpin(results, payoutInfo){
+  state.spinning = false;
+  btnStopAll.disabled = true;
+  state.reels.forEach(r=>r.stopButton.disabled = true);
+  highlightFaces(payoutInfo.highlightIndices);
+
+  state.stats.spins += 1;
+  state.stats.totalBet += state.bet;
+  let message = `結果: [ ${results.join(' | ')} ]`;
+  if(payoutInfo.payout>0){
+    state.stats.wins += 1;
+    state.stats.totalPayout += payoutInfo.payout;
+    if(payoutInfo.payout > state.stats.maxPayout) state.stats.maxPayout = payoutInfo.payout;
+    state.credits += payoutInfo.payout;
+    message += ` → ${payoutInfo.payout} クレジット獲得!`;
+    $announce.textContent = `おめでとうございます! ${results.join(' ')} が揃い、${payoutInfo.payout}クレジット獲得です。`;
+  } else {
+    $announce.textContent = `結果は ${results.join(' ')} です。`;
+  }
+  $result.textContent = message;
+  state.history.push({results:[...results], payout:payoutInfo.payout});
+  updateHistory();
+  updateCreditsDisplay();
+  updateStatsDisplay();
+
+  if(state.credits <= 0){
+    $result.textContent += ' クレジットが尽きました…リセットしてください。';
+    btnSpin.disabled = true;
+    stopAutoplay();
+  }
+
+  if(state.autoPlay.active){
+    if(state.autoPlay.mode !== -1){
+      state.autoPlay.remaining -= 1;
+      if(state.autoPlay.remaining <= 0){
+        stopAutoplay();
+        updateAutoplayStatus();
+        return;
+      }
+    }
+    updateAutoplayStatus();
+    setTimeout(()=>{
+      startSpin();
+    }, 600);
+  }
+}
+
+function stopAutoplay(){
+  state.autoPlay.active = false;
+  state.autoPlay.mode = 0;
+  state.autoPlay.remaining = 0;
+  document.getElementById('autoplay').value = '0';
+  updateAutoplayStatus();
+}
+
+function startSpin(){
+  if(state.spinning) return;
+  if(state.credits < state.bet){
+    $result.textContent = 'クレジット不足です。ベット額を下げるか、リセットしてください。';
+    stopAutoplay();
+    return;
+  }
+  clearHighlights();
+  state.spinning = true;
+  btnSpin.disabled = true;
+  btnStopAll.disabled = false;
+  state.reels.forEach(r=>r.stopButton.disabled = false);
+  state.credits -= state.bet;
+  const turns = Math.max(2, Math.min(20, Number(document.getElementById('turns').value)||8));
+  const duration = Math.max(400, Math.min(6000, Number(document.getElementById('duration').value)||2200));
+  const stagger = Math.max(0, Math.min(1500, Number(document.getElementById('stagger').value)||220));
+  const warmup = Math.max(0, Math.min(20, Number(document.getElementById('warmup').value)||6));
+
+  updateCreditsDisplay();
+  $result.textContent = 'スピン中…';
+
+  const results = generateSpinResults();
+  state.lastResults = results;
+  const targets = computeTargets(results, turns, duration, stagger, warmup);
+  targets.forEach(t=>{
+    animateReelTwoPhase(t.reel, warmup, t.targetDeg, t.duration, t.delay);
+  });
+  Promise.all(state.reels.map(r=>r.promise)).then(()=>{
+    const payoutInfo = evaluateResults(results);
+    finishSpin(results, payoutInfo);
+  });
+}
+
+function stopSequential(){
+  state.reels.forEach((reel, index)=>{
+    if(reel.finishNow) reel.finishNow();
+  });
+  btnStopAll.disabled = true;
+}
+
+function handleAutoplayChange(value){
+  if(state.spinning){
+    $result.textContent = '現在スピン中です。オート設定変更は完了後に適用されます。';
+    return;
+  }
+  const mode = Number(value);
+  if(mode === 0){
+    stopAutoplay();
+    return;
+  }
+  state.autoPlay.mode = mode;
+  state.autoPlay.active = true;
+  state.autoPlay.remaining = mode === -1 ? Infinity : mode;
+  updateAutoplayStatus();
+  startSpin();
+}
+
+function resetGame(){
+  state.credits = 1000;
+  state.stats = {spins:0,wins:0,totalBet:0,totalPayout:0,maxPayout:0};
+  state.history = [];
+  stopAutoplay();
+  clearHighlights();
+  updateHistory();
+  updateStatsDisplay();
+  updateCreditsDisplay();
+  $result.textContent = 'リセットしました。スピンしてみましょう!';
+}
+
+// イベント設定
+btnSpin.addEventListener('click', ()=>{
+  if(state.autoPlay.active && state.autoPlay.mode !== -1){
+    stopAutoplay();
+  }
+  startSpin();
+});
+btnStopAll.addEventListener('click', stopSequential);
+
+document.getElementById('reelCount').addEventListener('change', (e)=>{
+  state.reelCount = Number(e.target.value);
+  buildReels();
+  clearHighlights();
+});
+
+document.getElementById('bet').addEventListener('change', (e)=>{
+  state.bet = Number(e.target.value);
+  updateCreditsDisplay();
+});
+
+const symbolsSelect = document.getElementById('symbolsPreset');
+document.getElementById('applySymbols').addEventListener('click', ()=>{
+  state.symbols = PRESETS[symbolsSelect.value].slice();
+  buildReels();
+  renderPaytable();
+  clearHighlights();
+});
+
+document.getElementById('autoplay').addEventListener('change', (e)=>{
+  handleAutoplayChange(e.target.value);
+});
+
+document.getElementById('reset').addEventListener('click', ()=>{
+  resetGame();
+});
+
+// キーボードショートカット
+window.addEventListener('keydown', (e)=>{
+  if(e.repeat) return;
+  if(e.code === 'Space'){ e.preventDefault(); btnSpin.click(); }
+  if(e.key === 's' || e.key === 'S'){ e.preventDefault(); btnStopAll.click(); }
+  if(['1','2','3','4','5'].includes(e.key)){
+    const idx = Number(e.key)-1;
+    if(state.reels[idx] && state.reels[idx].finishNow){ state.reels[idx].finishNow(); }
+  }
+  if(e.key === 'a' || e.key === 'A'){
+    const select = document.getElementById('autoplay');
+    if(state.autoPlay.active){
+      stopAutoplay();
+      select.value = '0';
+    } else {
+      select.value = '10';
+      handleAutoplayChange('10');
+    }
+  }
+});
+
+// モバイル向け: リールタップで個別停止
+$slots.addEventListener('click', (e)=>{
+  const reelIndex = state.reels.findIndex(r=>r.reel.contains(e.target));
+  if(reelIndex>=0){
+    const reel = state.reels[reelIndex];
+    if(reel.finishNow) reel.finishNow();
+  }
+});
+
+function init(){
+  renderPaytable();
+  buildReels();
+  updateCreditsDisplay();
+  updateStatsDisplay();
+  updateHistory();
+  updateAutoplayStatus();
+  $result.textContent = 'スピンして遊んでみましょう!';
+}
+
+init();
+</script>
+</body>
+</html>
