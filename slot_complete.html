@@ -8,13 +8,13 @@
   :root {
     --bg:#06070d; --fg:#f8fafc; --muted:#94a3b8; --acc:#7aa2f7; --acc2:#f5b97f;
     --card:#111522; --border:#1f2937; --radius:14px;
-    --reel-w:120px; --reel-h:168px;
+    --reel-w:120px; --symbol-h:118px;
   }
   @media (max-width: 720px) {
-    :root { --reel-w:96px; --reel-h:140px; }
+    :root { --reel-w:96px; --symbol-h:108px; }
   }
   @media (max-width: 540px) {
-    :root { --reel-w:82px; --reel-h:120px; }
+    :root { --reel-w:82px; --symbol-h:96px; }
   }
   html,body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.6 "Segoe UI",system-ui,"Hiragino Sans","Noto Sans JP",sans-serif; }
   h1 { font-size:1.8rem; margin:0 0 6px; letter-spacing:0.04em; }
@@ -39,12 +39,12 @@
     0%,100% { transform:translate(-6%, -4%) scale(1.4); opacity:.12; }
     50% { transform:translate(6%, 4%) scale(1.45); opacity:.2; }
   }
-  .slots { position:relative; display:flex; flex-direction:column; align-items:center; gap:18px; z-index:2; }
-  .slot-row { display:flex; justify-content:center; gap:22px; width:100%; }
-  .reel-wrap { width:var(--reel-w); height:var(--reel-h); border-radius:16px; overflow:hidden; position:relative; background:linear-gradient(#04060b,#111625); box-shadow:inset 0 0 0 1px rgba(122,162,247,.06), 0 14px 40px rgba(0,0,0,.55); }
-  .reel-wrap::after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(to bottom, rgba(2,3,5,.85), transparent 28%, transparent 72%, rgba(3,5,9,.82)); }
-  .reel { width:100%; height:100%; position:relative; transform-style:preserve-3d; will-change:transform; }
-  .face { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:2rem; font-weight:700; letter-spacing:1px; color:#f9fafb; text-shadow:0 2px 6px rgba(0,0,0,.5); background:radial-gradient(115% 120% at 50% -15%, rgba(124,165,255,.65), rgba(20,28,46,1) 58%); border-radius:16px; border:1px solid rgba(148,163,184,.16); box-shadow:inset 0 1px 0 rgba(255,255,255,.1), 0 12px 24px rgba(5,9,16,.65); backface-visibility:hidden; transition:transform .3s ease, box-shadow .3s ease; }
+  .slots { position:relative; display:flex; justify-content:center; gap:22px; z-index:2; }
+  .reel-column { display:flex; flex-direction:column; gap:12px; align-items:center; }
+  .reel-wrap { width:var(--reel-w); height:calc(var(--symbol-h) * var(--rows, 3)); border-radius:16px; overflow:hidden; position:relative; background:linear-gradient(#04060b,#111625); box-shadow:inset 0 0 0 1px rgba(122,162,247,.06), 0 14px 40px rgba(0,0,0,.55); }
+  .reel-wrap::after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(to bottom, rgba(2,3,5,.85), transparent 30%, transparent 70%, rgba(3,5,9,.82)); }
+  .reel-track { display:flex; flex-direction:column; will-change:transform; }
+  .face { height:var(--symbol-h); display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:2rem; font-weight:700; letter-spacing:1px; color:#f9fafb; text-shadow:0 2px 6px rgba(0,0,0,.5); background:radial-gradient(115% 120% at 50% -15%, rgba(124,165,255,.65), rgba(20,28,46,1) 58%); border-radius:12px; border:1px solid rgba(148,163,184,.16); box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 8px 18px rgba(5,9,16,.55); margin:6px; }
   .face small { font-size:.75rem; color:rgba(241,245,249,.78); text-transform:uppercase; letter-spacing:.2em; }
   .face.winning { animation:glow .7s ease-in-out infinite alternate; box-shadow:0 0 24px rgba(124,165,255,.85); }
   @keyframes glow { from { filter:drop-shadow(0 0 12px rgba(124,165,255,.55)); } to { filter:drop-shadow(0 0 26px rgba(245,185,127,.8)); } }
@@ -468,48 +468,54 @@ function buildReels(){
   $slots.innerHTML='';
   state.reels = [];
   state.columnStopButtons = [];
-  const facesCount = Math.max(12, state.symbols.length*1.5|0);
+  const facesCount = Math.max(state.symbols.length * 6, state.rowCount * 12);
   state.faces = facesCount;
 
-  for(let row=0; row<state.rowCount; row++){
-    const rowWrap = document.createElement('div');
-    rowWrap.className = 'slot-row';
-    const rowReels = [];
+  for(let col=0; col<state.reelCount; col++){
+    const column = document.createElement('div');
+    column.className = 'reel-column';
 
-    for(let col=0; col<state.reelCount; col++){
-      const wrap = document.createElement('div');
-      wrap.className='reel-wrap';
-      const reel = document.createElement('div');
-      reel.className='reel';
-      wrap.appendChild(reel);
-      rowWrap.appendChild(wrap);
+    const wrap = document.createElement('div');
+    wrap.className='reel-wrap';
+    wrap.style.setProperty('--rows', state.rowCount);
+    const track = document.createElement('div');
+    track.className='reel-track';
+    wrap.appendChild(track);
+    column.appendChild(wrap);
+    $slots.appendChild(column);
 
-      const H = parseFloat(getComputedStyle(wrap).height);
-      const step = 360 / facesCount;
-      const radius = H/2 / Math.tan(Math.PI / facesCount);
-
-      const faces=[];
-      const indexMap = new Map();
-      for(let i=0;i<facesCount;i++){
-        const face = document.createElement('div');
-        face.className='face';
-        const sym = state.symbols[i % state.symbols.length];
-        face.textContent = sym;
-        face.setAttribute('data-symbol', sym);
-        const rot=i*step;
-        face.style.transform=`rotateX(${rot}deg) translateZ(${radius.toFixed(2)}px)`;
-        reel.appendChild(face);
-        faces.push(face);
-        if(!indexMap.has(sym)) indexMap.set(sym, []);
-        indexMap.get(sym).push(i);
-      }
-
-      const reelObj = {wrap,reel,faces,step,radius,turn:0,spinning:false,promise:null,finishNow:null,indexMap,targetFace:0,row,col};
-      rowReels.push(reelObj);
+    const faces=[];
+    for(let i=0;i<facesCount;i++){
+      const face = document.createElement('div');
+      face.className='face';
+      const sym = state.symbols[i % state.symbols.length];
+      face.textContent = sym;
+      face.setAttribute('data-symbol', sym);
+      track.appendChild(face);
+      faces.push(face);
     }
 
-    state.reels.push(rowReels);
-    $slots.appendChild(rowWrap);
+    const rect = faces[0] ? faces[0].getBoundingClientRect() : null;
+    const faceHeight = rect && rect.height ? rect.height : (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--symbol-h')) || 118);
+
+    const reelObj = {
+      column,
+      wrap,
+      track,
+      faces,
+      faceHeight,
+      facesCount,
+      offset:0,
+      spinning:false,
+      promise:null,
+      finishNow:null,
+      targetIndex:0,
+      visibleCells:[],
+      raf:null,
+      stopButton:null,
+    };
+    track.style.transform = 'translateY(0px)';
+    state.reels.push(reelObj);
   }
 
   $stopButtons.innerHTML='';
@@ -524,25 +530,21 @@ function buildReels(){
     };
     $stopButtons.appendChild(btn);
     state.columnStopButtons.push(btn);
+    if(state.reels[col]){
+      state.reels[col].stopButton = btn;
+    }
   }
 }
 
 function forEachReel(callback){
-  state.reels.forEach((rowArr, rowIdx)=>{
-    rowArr.forEach((reel, colIdx)=>{
-      callback(reel, rowIdx, colIdx);
-    });
+  state.reels.forEach((reel, colIdx)=>{
+    if(reel){ callback(reel, colIdx); }
   });
-}
-
-function getColumnReels(colIdx){
-  return state.reels.map(row=>row[colIdx]).filter(Boolean);
 }
 
 function stopColumn(colIdx){
-  getColumnReels(colIdx).forEach(reel=>{
-    if(reel && reel.finishNow){ reel.finishNow(); }
-  });
+  const reel = state.reels[colIdx];
+  if(reel && reel.finishNow){ reel.finishNow(); }
 }
 
 function updateCreditsDisplay(){
@@ -592,15 +594,19 @@ function updateHistory(){
   });
 }
 
-function randomFaceIndexForSymbol(reel, symbol){
-  const indices = reel.indexMap.get(symbol);
-  if(!indices || indices.length === 0){
-    return Math.floor(Math.random()*reel.faces.length);
-  }
-  return indices[Math.floor(Math.random()*indices.length)];
+function applyReelOffset(reel, offset){
+  const cycle = reel.faceHeight * reel.facesCount;
+  let y = offset % cycle;
+  if(y > 0) y -= cycle;
+  reel.track.style.transform = `translateY(${y}px)`;
+  reel.offset = offset;
 }
 
-function animateReelTwoPhase(reel, warmupTurns, finalTargetDeg, finalDuration, delay){
+function easeOutCubic(t){
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function animateReelTwoPhase({reel, warmup, targetOffset, duration, delay, baseIndex, symbols}){
   reel.spinning = true;
   let resolveFn; reel.promise = new Promise(res=>resolveFn=res);
   let skipWarmup = false;
@@ -609,12 +615,26 @@ function animateReelTwoPhase(reel, warmupTurns, finalTargetDeg, finalDuration, d
   let mainStarted = false;
   let delayStart = null;
   let warmupStart = null;
-  let finalStart = null;
-  let currentDuration = finalDuration;
-  const startDeg = reel.turn;
-  const warmupTarget = startDeg - 360 * warmupTurns;
-  const warmupPerTurnMs = 200;
-  const warmupDuration = Math.max(200, warmupTurns * warmupPerTurnMs);
+  let mainStart = null;
+  let currentDuration = duration;
+  const cycle = reel.faceHeight * reel.facesCount;
+  const startOffset = reel.offset ?? 0;
+  const warmupDistance = warmup > 0 ? warmup * cycle : 0;
+  let warmupEndOffset = startOffset - warmupDistance;
+
+  const assignFinalSymbols = ()=>{
+    reel.visibleCells = [];
+    symbols.forEach((sym, rowIdx)=>{
+      const idx = (baseIndex + rowIdx) % reel.facesCount;
+      const cell = reel.faces[idx];
+      if(cell){
+        cell.textContent = sym;
+        cell.setAttribute('data-symbol', sym);
+        cell.classList.remove('winning');
+        reel.visibleCells[rowIdx] = cell;
+      }
+    });
+  };
 
   reel.finishNow = ()=>{
     if(!mainStarted){
@@ -625,70 +645,66 @@ function animateReelTwoPhase(reel, warmupTurns, finalTargetDeg, finalDuration, d
   };
 
   function mainStep(ts){
-    if(finalStart === null){ finalStart = ts; }
+    if(!mainStart) mainStart = ts;
     if(accelerate && !accelerateApplied){
-      const elapsed = ts - finalStart;
-      const progress = Math.min(1, elapsed / currentDuration);
-      currentDuration = Math.min(currentDuration, 420);
-      finalStart = ts - progress * currentDuration;
       accelerateApplied = true;
+      currentDuration = Math.max(260, currentDuration * 0.35);
+      warmupEndOffset = reel.offset;
+      mainStart = ts;
     }
-    const elapsed = ts - finalStart;
-    const progress = Math.min(1, elapsed / currentDuration);
-    const eased = 1 - Math.pow(1-progress,3);
-    const deg = startDeg + (finalTargetDeg - startDeg) * eased;
-    reel.turn = deg;
-    reel.reel.style.transform = `rotateX(${deg}deg)`;
-    if(progress < 1){
+    const elapsed = ts - mainStart;
+    const t = currentDuration === 0 ? 1 : Math.min(1, elapsed / currentDuration);
+    const eased = easeOutCubic(t);
+    const value = warmupEndOffset + (targetOffset - warmupEndOffset) * eased;
+    applyReelOffset(reel, value);
+    if(t < 1){
       reel.raf = requestAnimationFrame(mainStep);
     } else {
+      applyReelOffset(reel, targetOffset);
       reel.spinning = false;
-      reel.turn = finalTargetDeg;
-      reel.reel.style.transform = `rotateX(${finalTargetDeg}deg)`;
       reel.finishNow = null;
+      reel.raf = null;
+      reel.promise = null;
       resolveFn();
     }
   }
 
   function warmupStep(ts){
-    if(skipWarmup){
-      mainStarted = true;
-      reel.turn = startDeg;
-      reel.reel.style.transform = `rotateX(${startDeg}deg)`;
-      reel.raf = requestAnimationFrame(mainStep);
-      return;
-    }
-    if(warmupStart === null){ warmupStart = ts; }
+    if(!warmupStart) warmupStart = ts;
+    const warmupDuration = Math.max(200, warmup * 180);
     const elapsed = ts - warmupStart;
-    const progress = Math.min(1, elapsed / warmupDuration);
-    const deg = startDeg + (warmupTarget - startDeg) * progress;
-    reel.turn = deg;
-    reel.reel.style.transform = `rotateX(${deg}deg)`;
-    if(progress < 1){
-      reel.raf = requestAnimationFrame(warmupStep);
-    } else {
+    const progress = warmupDuration === 0 ? 1 : Math.min(1, elapsed / warmupDuration);
+    const value = startOffset + (warmupEndOffset - startOffset) * progress;
+    applyReelOffset(reel, value);
+    if(skipWarmup || progress >= 1){
+      warmupEndOffset = reel.offset;
+      assignFinalSymbols();
       mainStarted = true;
-      reel.turn = startDeg;
-      reel.reel.style.transform = `rotateX(${startDeg}deg)`;
+      mainStart = null;
       reel.raf = requestAnimationFrame(mainStep);
+    } else {
+      reel.raf = requestAnimationFrame(warmupStep);
     }
   }
 
   function startAnimation(ts){
-    if(delayStart === null){ delayStart = ts; }
+    if(delayStart === null) delayStart = ts;
     if(delay && ts - delayStart < delay){
       reel.raf = requestAnimationFrame(startAnimation);
       return;
     }
-    if(warmupTurns>0){
+    if(warmup > 0 && !skipWarmup){
       reel.raf = requestAnimationFrame(warmupStep);
     } else {
+      assignFinalSymbols();
+      warmupEndOffset = reel.offset;
       mainStarted = true;
-      finalStart = null;
+      mainStart = null;
       reel.raf = requestAnimationFrame(mainStep);
     }
   }
 
+  applyReelOffset(reel, startOffset);
   reel.raf = requestAnimationFrame(startAnimation);
 }
 
@@ -706,25 +722,25 @@ function generateSpinResults(){
 
 function computeTargets(results, turns, duration, stagger, warmup){
   const targets = [];
-  results.forEach((rowResults, rowIdx)=>{
-    rowResults.forEach((symbol, colIdx)=>{
-      const reel = state.reels[rowIdx][colIdx];
-      const faceIdx = randomFaceIndexForSymbol(reel, symbol);
-      const baseTarget = -faceIdx * reel.step;
-      const extraTurns = turns + colIdx + rowIdx;
-      const targetDeg = baseTarget - 360 * extraTurns;
-      reel.targetFace = faceIdx;
-      targets.push({
-        targetDeg,
-        reel,
-        faceIdx,
-        symbol,
-        duration: duration + colIdx*150 + rowIdx*90,
-        delay: stagger*colIdx + rowIdx*120,
-        warmup,
-      });
+  for(let col=0; col<state.reelCount; col++){
+    const reel = state.reels[col];
+    if(!reel) continue;
+    const symbols = results.map(row=>row[col]);
+    const maxIndex = Math.max(0, reel.facesCount - state.rowCount - 1);
+    const baseIndex = Math.floor(Math.random() * (maxIndex + 1));
+    reel.targetIndex = baseIndex;
+    const extraTurns = Math.max(0, turns + col);
+    const targetOffset = -(baseIndex * reel.faceHeight) - extraTurns * reel.facesCount * reel.faceHeight;
+    targets.push({
+      reel,
+      warmup,
+      targetOffset,
+      duration: duration + col*150,
+      delay: stagger*col,
+      baseIndex,
+      symbols,
     });
-  });
+  }
   return targets;
 }
 
@@ -826,11 +842,13 @@ function highlightFaces(highlights){
     reel.faces.forEach(face=>face.classList.remove('winning'));
   });
   if(highlights.size === 0) return;
-  forEachReel((reel, rowIdx, colIdx)=>{
-    if(!highlights.has(`${rowIdx}:${colIdx}`)) return;
-    const faceIdx = ((reel.targetFace % reel.faces.length)+reel.faces.length)%reel.faces.length;
-    const face = reel.faces[faceIdx];
-    if(face){ face.classList.add('winning'); }
+  forEachReel((reel, colIdx)=>{
+    reel.visibleCells.forEach((cell, rowIdx)=>{
+      if(!cell) return;
+      if(highlights.has(`${rowIdx}:${colIdx}`)){
+        cell.classList.add('winning');
+      }
+    });
   });
 }
 
@@ -915,6 +933,7 @@ function startSpin(){
   btnSpin.disabled = true;
   btnStopAll.disabled = false;
   state.columnStopButtons.forEach(btn=>btn.disabled = false);
+  state.reels.forEach(reel=>{ if(reel && reel.stopButton){ reel.stopButton.disabled = false; } });
   state.credits -= state.bet;
   const turns = Math.max(2, Math.min(20, Number(document.getElementById('turns').value)||8));
   const duration = Math.max(400, Math.min(6000, Number(document.getElementById('duration').value)||2200));
@@ -928,9 +947,9 @@ function startSpin(){
   state.lastResults = results.map(row=>row.slice());
   const targets = computeTargets(results, turns, duration, stagger, warmup);
   const promises = [];
-  targets.forEach(t=>{
-    animateReelTwoPhase(t.reel, warmup, t.targetDeg, t.duration, t.delay);
-    if(t.reel.promise){ promises.push(t.reel.promise); }
+  targets.forEach(target=>{
+    animateReelTwoPhase(target);
+    if(target.reel.promise){ promises.push(target.reel.promise); }
   });
   Promise.all(promises).then(()=>{
     const payoutInfo = evaluateResults(results);
@@ -1102,13 +1121,12 @@ window.addEventListener('keydown', (e)=>{
 
 // モバイル向け: リールタップで個別停止
 $slots.addEventListener('click', (e)=>{
-  for(let rowIdx=0; rowIdx<state.reels.length; rowIdx++){
-    for(let colIdx=0; colIdx<state.reels[rowIdx].length; colIdx++){
-      const reel = state.reels[rowIdx][colIdx];
-      if(reel && reel.reel.contains(e.target)){
-        if(reel.finishNow){ reel.finishNow(); }
-        return;
-      }
+  for(let colIdx=0; colIdx<state.reels.length; colIdx++){
+    const reel = state.reels[colIdx];
+    if(!reel) continue;
+    if(reel.wrap.contains(e.target)){
+      if(reel.finishNow){ reel.finishNow(); }
+      return;
     }
   }
 });
