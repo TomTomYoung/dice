@@ -7,6 +7,10 @@
 <style>
   :root {
     color-scheme: light dark;
+    --die-size: clamp(88px, 10vw, 110px);
+    --die-half: calc(var(--die-size) / 2);
+    --pip-size: 14px;
+    --die-radius: 18px;
   }
   * {
     box-sizing: border-box;
@@ -66,8 +70,8 @@
     perspective: 1200px;
   }
   .die-wrap-3d {
-    width: clamp(88px, 10vw, 110px);
-    height: clamp(88px, 10vw, 110px);
+    width: var(--die-size);
+    height: var(--die-size);
     position: relative;
   }
   .cube {
@@ -82,9 +86,10 @@
     display: grid;
     place-items: center;
     background: linear-gradient(145deg, #f8fafc, #e2e8f0);
-    border-radius: 18px;
+    border-radius: var(--die-radius);
     border: 1px solid rgba(148,163,184,.7);
     box-shadow: inset 0 0 12px rgba(15,23,42,.12);
+    overflow: hidden;
   }
   .face-content {
     width: 100%;
@@ -94,8 +99,8 @@
     grid-template-rows: repeat(3, 1fr);
   }
   .pip {
-    width: 14px;
-    height: 14px;
+    width: var(--pip-size);
+    height: var(--pip-size);
     background: #0f172a;
     border-radius: 50%;
     margin: auto;
@@ -116,12 +121,12 @@
     font-weight: 700;
     color: #0f172a;
   }
-  .f-front  { transform: translateZ(50%); }
-  .f-back   { transform: rotateY(180deg) translateZ(50%); }
-  .f-right  { transform: rotateY(90deg) translateZ(50%); }
-  .f-left   { transform: rotateY(-90deg) translateZ(50%); }
-  .f-top    { transform: rotateX(90deg) translateZ(50%); }
-  .f-bottom { transform: rotateX(-90deg) translateZ(50%); }
+  .f-front  { transform: translateZ(var(--die-half)); }
+  .f-back   { transform: rotateY(180deg) translateZ(var(--die-half)); }
+  .f-right  { transform: rotateY(90deg) translateZ(var(--die-half)); }
+  .f-left   { transform: rotateY(-90deg) translateZ(var(--die-half)); }
+  .f-top    { transform: rotateX(90deg) translateZ(var(--die-half)); }
+  .f-bottom { transform: rotateX(-90deg) translateZ(var(--die-half)); }
   .controls {
     display: flex;
     flex-wrap: wrap;
