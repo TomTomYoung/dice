@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>2Dサイコロシミュレーター</title>
+<style>
+  :root {
+    --size: 94px;
+    --pip: 14px;
+    --gap: 16px;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    margin: 0;
+    padding: 24px;
+    background: #f0f2f5;
+    color: #111827;
+  }
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  header {
+    background: white;
+    padding: 28px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+    box-shadow: 0 18px 44px rgba(148,163,184,0.25);
+  }
+  h1 {
+    margin: 0 0 12px;
+    font-size: 32px;
+    font-weight: 700;
+  }
+  .lead {
+    margin: 0;
+    color: #4b5563;
+    font-size: 15px;
+  }
+  .config-panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .config-group {
+    background: #f8fafc;
+    padding: 20px;
+    border-radius: 14px;
+    border: 1px solid rgba(148,163,184,0.25);
+    box-shadow: 0 6px 18px rgba(15,23,42,0.06);
+  }
+  .config-group h3 {
+    margin: 0 0 14px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e3a8a;
+    letter-spacing: .4px;
+  }
+  .form-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .form-row label {
+    font-size: 14px;
+    min-width: 90px;
+    color: #475569;
+  }
+  .form-row input[type="number"],
+  .form-row input[type="color"],
+  .form-row select,
+  .form-row input[type="range"],
+  .form-row textarea,
+  .form-row input[type="text"] {
+    flex: 1;
+    font-size: 14px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid #cbd5f5;
+    background: white;
+  }
+  .form-row input[type="range"] {
+    padding: 0;
+    height: 6px;
+  }
+  .form-row textarea {
+    min-height: 90px;
+    resize: vertical;
+  }
+  .inline-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .inline-grid label {
+    display: flex;
+    flex-direction: column;
+    font-size: 13px;
+    color: #475569;
+  }
+  .inline-grid input {
+    margin-top: 4px;
+    width: 100%;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  button {
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: white;
+    box-shadow: 0 12px 32px rgba(37,99,235,0.3);
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+  }
+  .btn-primary:disabled {
+    background: #94a3b8;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    background: #64748b;
+    color: white;
+  }
+  .btn-secondary:hover {
+    background: #475569;
+  }
+  .dice-container {
+    background: white;
+    padding: 32px;
+    border-radius: 16px;
+    box-shadow: 0 18px 44px rgba(148,163,184,0.2);
+    min-height: 220px;
+  }
+  .board-2d {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--size), 1fr));
+    gap: var(--gap);
+    justify-items: center;
+  }
+  .die-2d {
+    width: var(--size);
+    height: var(--size);
+    background: #ffffff;
+    border-radius: 18px;
+    border: 1px solid #d0d4da;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    padding: 12px;
+    box-shadow: 0 6px 20px rgba(15,23,42,0.12);
+    position: relative;
+    overflow: hidden;
+  }
+  .die-2d.has-image {
+    background-size: cover;
+    background-position: center;
+  }
+  .pip {
+    width: var(--pip);
+    height: var(--pip);
+    background: #111827;
+    border-radius: 50%;
+    margin: auto;
+  }
+  .face-label {
+    grid-column: 1 / -1;
+    grid-row: 1 / -1;
+    display: grid;
+    place-items: center;
+    font-size: 34px;
+    font-weight: 700;
+    color: #111827;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.6);
+  }
+  .die-2d .face-label.small {
+    font-size: 26px;
+  }
+  .die-2d .face-label.textual {
+    font-size: 28px;
+    letter-spacing: .08em;
+  }
+  .die-2d .face-label.fallback {
+    color: rgba(15,23,42,0.72);
+  }
+  .p1 { grid-area: 1 / 1; }
+  .p2 { grid-area: 1 / 2; }
+  .p3 { grid-area: 1 / 3; }
+  .p4 { grid-area: 2 / 1; }
+  .p5 { grid-area: 2 / 2; }
+  .p6 { grid-area: 2 / 3; }
+  .p7 { grid-area: 3 / 1; }
+  .p8 { grid-area: 3 / 2; }
+  .p9 { grid-area: 3 / 3; }
+  .rolling-2d {
+    animation: shake2d 0.5s ease;
+  }
+  @keyframes shake2d {
+    0%, 100% { transform: rotate(0) translate(0, 0); }
+    25% { transform: rotate(6deg) translate(2px, -1px); }
+    50% { transform: rotate(-5deg) translate(-2px, 1px); }
+    75% { transform: rotate(3deg) translate(1px, 2px); }
+  }
+  .results {
+    margin-top: 24px;
+    padding: 18px;
+    background: #ecfdf5;
+    border-radius: 12px;
+    border: 1px solid #a7f3d0;
+    color: #047857;
+    font-size: 15px;
+    display: none;
+  }
+  .results-detail {
+    margin-top: 4px;
+    font-size: 14px;
+    color: #047857;
+  }
+  .debug-controls {
+    margin-top: 12px;
+    padding: 12px;
+    background: #fff3cd;
+    border-radius: 10px;
+    border: 1px solid #ffc107;
+    display: none;
+  }
+  .debug-controls label {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .debug-inputs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .debug-inputs input {
+    width: 50px;
+    padding: 4px 8px;
+    border: 1px solid #d0d0d0;
+    border-radius: 6px;
+    text-align: center;
+  }
+  .note-box {
+    font-size: 12px;
+    color: #475569;
+    background: rgba(148,163,184,0.18);
+    padding: 10px 12px;
+    border-radius: 10px;
+  }
+  @media (max-width: 640px) {
+    .form-row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .form-row label {
+      min-width: 0;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎲 2Dサイコロシミュレーター</h1>
+      <p class="lead">フラットな2D描画を自由にカスタマイズ。色や角、表示方法をお好みに合わせて調整できます。</p>
+    </header>
+
+    <section class="config-panel">
+      <div class="config-group">
+        <h3>基本設定</h3>
+        <div class="form-row">
+          <label for="diceCount">個数</label>
+          <input type="number" id="diceCount" min="1" max="16" value="3">
+        </div>
+        <div class="form-row">
+          <label for="faceMode">出目の表示</label>
+          <select id="faceMode">
+            <option value="pips">ピップ</option>
+            <option value="number">数字</option>
+            <option value="text">文字</option>
+            <option value="image">画像</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="debugMode">デバッグ</label>
+          <input type="checkbox" id="debugMode">
+        </div>
+      </div>
+
+      <div class="config-group">
+        <h3>外観設定</h3>
+        <div class="form-row">
+          <label for="bodyColor">サイの色</label>
+          <input type="color" id="bodyColor" value="#ffffff">
+        </div>
+        <div class="form-row">
+          <label for="detailColor">ピップ/文字色</label>
+          <input type="color" id="detailColor" value="#111827">
+        </div>
+        <div class="form-row">
+          <label for="cornerRadius">面の角</label>
+          <input type="range" id="cornerRadius" min="0" max="32" value="18">
+        </div>
+      </div>
+
+      <div class="config-group" id="textConfig" style="display:none;">
+        <h3>文字表示</h3>
+        <div class="inline-grid">
+          <label>1の面
+            <input type="text" data-face="1" class="text-entry" value="一">
+          </label>
+          <label>2の面
+            <input type="text" data-face="2" class="text-entry" value="二">
+          </label>
+          <label>3の面
+            <input type="text" data-face="3" class="text-entry" value="三">
+          </label>
+          <label>4の面
+            <input type="text" data-face="4" class="text-entry" value="四">
+          </label>
+          <label>5の面
+            <input type="text" data-face="5" class="text-entry" value="五">
+          </label>
+          <label>6の面
+            <input type="text" data-face="6" class="text-entry" value="六">
+          </label>
+        </div>
+        <p class="note-box">空欄の場合は数字で補完されます。</p>
+      </div>
+
+      <div class="config-group" id="imageConfig" style="display:none;">
+        <h3>画像表示</h3>
+        <div class="inline-grid">
+          <label>1の面
+            <input type="text" data-face="1" class="image-entry" placeholder="画像URL">
+          </label>
+          <label>2の面
+            <input type="text" data-face="2" class="image-entry" placeholder="画像URL">
+          </label>
+          <label>3の面
+            <input type="text" data-face="3" class="image-entry" placeholder="画像URL">
+          </label>
+          <label>4の面
+            <input type="text" data-face="4" class="image-entry" placeholder="画像URL">
+          </label>
+          <label>5の面
+            <input type="text" data-face="5" class="image-entry" placeholder="画像URL">
+          </label>
+          <label>6の面
+            <input type="text" data-face="6" class="image-entry" placeholder="画像URL">
+          </label>
+        </div>
+        <p class="note-box">画像が指定されていない面は文字または数字で表示されます。</p>
+      </div>
+
+      <div class="config-group debug-controls" id="debugControls">
+        <h3>デバッグ設定</h3>
+        <label for="debugValues">出目 (カンマ区切り、1-6)</label>
+        <div class="debug-inputs">
+          <input type="text" id="debugValues" placeholder="例: 1,2,3">
+        </div>
+      </div>
+    </section>
+
+    <section class="dice-container">
+      <div id="diceBoard" class="board-2d"></div>
+      <div class="actions">
+        <button id="rollBtn" class="btn-primary">ロールする (Space)</button>
+        <button id="resetBtn" class="btn-secondary">リセット</button>
+      </div>
+      <div id="results" class="results"></div>
+    </section>
+  </div>
+
+<script>
+(() => {
+  const diceBoard = document.getElementById('diceBoard');
+  const resultsEl = document.getElementById('results');
+  const rollBtn = document.getElementById('rollBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const diceCountInput = document.getElementById('diceCount');
+  const debugModeCheck = document.getElementById('debugMode');
+  const debugControls = document.getElementById('debugControls');
+  const debugValuesInput = document.getElementById('debugValues');
+  const bodyColorInput = document.getElementById('bodyColor');
+  const detailColorInput = document.getElementById('detailColor');
+  const cornerRadiusInput = document.getElementById('cornerRadius');
+  const faceModeSelect = document.getElementById('faceMode');
+  const textConfig = document.getElementById('textConfig');
+  const imageConfig = document.getElementById('imageConfig');
+  const textEntries = Array.from(document.querySelectorAll('.text-entry'));
+  const imageEntries = Array.from(document.querySelectorAll('.image-entry'));
+
+  const appearance = {
+    bodyColor: bodyColorInput.value,
+    detailColor: detailColorInput.value,
+    cornerRadius: Number(cornerRadiusInput.value),
+    faceMode: faceModeSelect.value,
+    texts: ['一','二','三','四','五','六'],
+    images: ['', '', '', '', '', '']
+  };
+
+  const state = {
+    diceCount: Number(diceCountInput.value) || 3,
+    diceElements: [],
+    isRolling: false,
+    debugMode: false
+  };
+
+  function randint1n(n) {
+    if (crypto?.getRandomValues) {
+      const max = 0xFFFFFFFF;
+      const limit = Math.floor(max / n) * n;
+      const buf = new Uint32Array(1);
+      for (;;) {
+        crypto.getRandomValues(buf);
+        if (buf[0] < limit) return (buf[0] % n) + 1;
+      }
+    }
+    return Math.floor(Math.random() * n) + 1;
+  }
+
+  function getPipPositions(value) {
+    const map = {
+      1: [5],
+      2: [1, 9],
+      3: [1, 5, 9],
+      4: [1, 3, 7, 9],
+      5: [1, 3, 5, 7, 9],
+      6: [1, 3, 4, 6, 7, 9]
+    };
+    return map[value] || [5];
+  }
+
+  function applyDieStyle(die) {
+    die.style.background = appearance.bodyColor;
+    die.style.borderRadius = `${appearance.cornerRadius}px`;
+    die.style.borderColor = appearance.detailColor + '33';
+  }
+
+  function renderDieFace(die, value) {
+    die.classList.remove('has-image');
+    die.style.backgroundImage = 'none';
+    die.innerHTML = '';
+
+    if (appearance.faceMode === 'pips') {
+      const positions = getPipPositions(value);
+      for (const pos of positions) {
+        const pip = document.createElement('div');
+        pip.className = `pip p${pos}`;
+        pip.style.background = appearance.detailColor;
+        die.appendChild(pip);
+      }
+    } else if (appearance.faceMode === 'number') {
+      const label = document.createElement('div');
+      label.className = 'face-label';
+      label.textContent = String(value);
+      label.style.color = appearance.detailColor;
+      die.appendChild(label);
+    } else if (appearance.faceMode === 'text') {
+      const label = document.createElement('div');
+      label.className = 'face-label textual';
+      const text = appearance.texts[value - 1] || String(value);
+      label.textContent = text;
+      label.style.color = appearance.detailColor;
+      die.appendChild(label);
+    } else if (appearance.faceMode === 'image') {
+      const url = appearance.images[value - 1]?.trim();
+      if (url) {
+        die.classList.add('has-image');
+        die.style.backgroundImage = `url(${url})`;
+        const overlay = document.createElement('div');
+        overlay.className = 'face-label fallback';
+        overlay.textContent = '';
+        die.appendChild(overlay);
+      } else {
+        const label = document.createElement('div');
+        label.className = 'face-label small fallback';
+        label.textContent = String(value);
+        label.style.color = appearance.detailColor;
+        die.appendChild(label);
+      }
+    }
+
+    die.setAttribute('data-value', value);
+  }
+
+  function createDie2D(value) {
+    const die = document.createElement('div');
+    die.className = 'die-2d';
+    applyDieStyle(die);
+    renderDieFace(die, value);
+    return die;
+  }
+
+  function initBoard() {
+    diceBoard.innerHTML = '';
+    state.diceElements = [];
+    resultsEl.style.display = 'none';
+
+    for (let i = 0; i < state.diceCount; i++) {
+      const die = createDie2D(randint1n(6));
+      diceBoard.appendChild(die);
+      state.diceElements.push(die);
+    }
+  }
+
+  function getTargetValues() {
+    if (state.debugMode) {
+      const input = debugValuesInput.value.trim();
+      if (input) {
+        const parsed = input.split(',').map(v => {
+          const n = parseInt(v.trim(), 10);
+          return (n >= 1 && n <= 6) ? n : randint1n(6);
+        });
+        while (parsed.length < state.diceCount) {
+          parsed.push(randint1n(6));
+        }
+        return parsed.slice(0, state.diceCount);
+      }
+    }
+    return Array.from({ length: state.diceCount }, () => randint1n(6));
+  }
+
+  function showResults(values, total) {
+    resultsEl.style.display = 'block';
+    resultsEl.innerHTML = `
+      <div>合計: <strong>${total}</strong></div>
+      <div class="results-detail">出目: ${values.join(', ')}</div>
+    `;
+  }
+
+  function refreshAppearance() {
+    state.diceElements.forEach(die => {
+      applyDieStyle(die);
+      const current = Number(die.getAttribute('data-value')) || randint1n(6);
+      renderDieFace(die, current);
+    });
+  }
+
+  function roll2D() {
+    if (state.isRolling) return;
+    state.isRolling = true;
+    rollBtn.disabled = true;
+
+    const dice = state.diceElements;
+    const values = getTargetValues();
+
+    dice.forEach(die => die.classList.add('rolling-2d'));
+
+    setTimeout(() => {
+      let total = 0;
+      dice.forEach((die, index) => {
+        const value = values[index];
+        total += value;
+        applyDieStyle(die);
+        renderDieFace(die, value);
+        die.classList.remove('rolling-2d');
+      });
+      showResults(values, total);
+      state.isRolling = false;
+      rollBtn.disabled = false;
+    }, 420);
+  }
+
+  rollBtn.addEventListener('click', roll2D);
+  resetBtn.addEventListener('click', () => {
+    state.isRolling = false;
+    rollBtn.disabled = false;
+    initBoard();
+  });
+
+  diceCountInput.addEventListener('change', (e) => {
+    const next = Math.max(1, Math.min(16, parseInt(e.target.value, 10) || 1));
+    state.diceCount = next;
+    diceCountInput.value = next;
+    initBoard();
+  });
+
+  debugModeCheck.addEventListener('change', (e) => {
+    state.debugMode = e.target.checked;
+    debugControls.style.display = state.debugMode ? 'block' : 'none';
+  });
+
+  bodyColorInput.addEventListener('input', (e) => {
+    appearance.bodyColor = e.target.value;
+    refreshAppearance();
+  });
+
+  detailColorInput.addEventListener('input', (e) => {
+    appearance.detailColor = e.target.value;
+    refreshAppearance();
+  });
+
+  cornerRadiusInput.addEventListener('input', (e) => {
+    appearance.cornerRadius = Number(e.target.value) || 0;
+    refreshAppearance();
+  });
+
+  faceModeSelect.addEventListener('change', (e) => {
+    appearance.faceMode = e.target.value;
+    textConfig.style.display = appearance.faceMode === 'text' ? 'block' : 'none';
+    imageConfig.style.display = appearance.faceMode === 'image' ? 'block' : 'none';
+    refreshAppearance();
+  });
+
+  textEntries.forEach(input => {
+    input.addEventListener('input', (e) => {
+      const face = Number(e.target.dataset.face) || 1;
+      appearance.texts[face - 1] = e.target.value;
+      if (appearance.faceMode === 'text') {
+        refreshAppearance();
+      }
+    });
+  });
+
+  imageEntries.forEach(input => {
+    input.addEventListener('change', (e) => {
+      const face = Number(e.target.dataset.face) || 1;
+      appearance.images[face - 1] = e.target.value;
+      if (appearance.faceMode === 'image') {
+        refreshAppearance();
+      }
+    });
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      roll2D();
+    }
+  });
+
+  textConfig.style.display = appearance.faceMode === 'text' ? 'block' : 'none';
+  imageConfig.style.display = appearance.faceMode === 'image' ? 'block' : 'none';
+
+  initBoard();
+})();
+</script>
+</body>
+</html>
