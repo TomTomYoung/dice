@@ -3,738 +3,108 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>統合サイコロシミュレーター</title>
+<title>Dice Playground</title>
 <style>
   :root {
-    --size: 90px;
-    --pip: 12px;
-    --gap: 14px;
+    color-scheme: light dark;
   }
   body {
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
     margin: 0;
-    padding: 24px;
-    background: #f0f2f5;
-    color: #111;
+    font-family: "Inter", system-ui, -apple-system, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    background: radial-gradient(circle at top, #eef2ff, #e2e8f0 60%, #cbd5f5);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
   }
-  .container {
-    max-width: 1200px;
-    margin: 0 auto;
-  }
-  header {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  main {
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    border-radius: 24px;
+    box-shadow: 0 24px 60px rgba(59,130,246,.28);
+    max-width: 640px;
+    width: 100%;
+    padding: 48px 40px;
+    text-align: center;
   }
   h1 {
-    margin: 0 0 20px;
-    font-size: 24px;
-    font-weight: 700;
-  }
-  
-  /* 設定パネル */
-  .config-panel {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 20px;
-    margin-bottom: 20px;
-  }
-  .config-group {
-    background: #f8f9fa;
-    padding: 16px;
-    border-radius: 8px;
-    border: 1px solid #e0e0e0;
-  }
-  .config-group h3 {
     margin: 0 0 12px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #555;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: clamp(32px, 4vw, 44px);
+    color: #1e293b;
+    letter-spacing: 0.04em;
   }
-  .radio-group, .checkbox-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .radio-item, .checkbox-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: background .15s;
-  }
-  .radio-item:hover, .checkbox-item:hover {
-    background: rgba(0,0,0,.04);
-  }
-  .radio-item input, .checkbox-item input {
-    cursor: pointer;
-  }
-  .radio-item label, .checkbox-item label {
-    cursor: pointer;
-    font-size: 14px;
-    flex: 1;
-  }
-  .number-input {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-  .number-input label {
-    font-size: 14px;
-    min-width: 80px;
-  }
-  .number-input input {
-    flex: 1;
-    padding: 6px 10px;
-    border: 1px solid #d0d0d0;
-    border-radius: 6px;
-    font-size: 14px;
-  }
-  .disabled-section {
-    opacity: 0.4;
-    pointer-events: none;
-  }
-
-  /* 操作ボタン */
-  .actions {
-    display: flex;
-    gap: 12px;
-    margin-top: 16px;
-    flex-wrap: wrap;
-  }
-  button {
-    padding: 12px 24px;
-    font-size: 15px;
-    font-weight: 600;
-    border-radius: 10px;
-    border: none;
-    cursor: pointer;
-    transition: all .15s;
-  }
-  .btn-primary {
-    background: #2563eb;
-    color: white;
-  }
-  .btn-primary:hover {
-    background: #1d4ed8;
-  }
-  .btn-primary:active {
-    transform: translateY(1px);
-  }
-  .btn-primary:disabled {
-    background: #94a3b8;
-    cursor: not-allowed;
-  }
-  .btn-secondary {
-    background: #64748b;
-    color: white;
-  }
-  .btn-secondary:hover {
-    background: #475569;
-  }
-
-  /* サイコロエリア */
-  .dice-container {
-    background: white;
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.08);
-    min-height: 200px;
-  }
-  
-  /* 2D用スタイル */
-  .board-2d {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(var(--size), 1fr));
-    gap: var(--gap);
-    justify-items: center;
-  }
-  .die-2d {
-    width: var(--size);
-    height: var(--size);
-    background: #fff;
-    border-radius: 16px;
-    border: 1px solid #d0d4da;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(3, 1fr);
-    padding: 10px;
-    box-shadow: 0 6px 18px rgba(0,0,0,.12);
-  }
-  .rolling-2d {
-    animation: shake2d 0.5s ease;
-  }
-  @keyframes shake2d {
-    0%, 100% { transform: rotate(0) translate(0, 0); }
-    25% { transform: rotate(6deg) translate(2px, -1px); }
-    50% { transform: rotate(-5deg) translate(-2px, 1px); }
-    75% { transform: rotate(3deg) translate(1px, 2px); }
-  }
-
-  /* 3D用スタイル */
-  .board-3d {
-    display: flex;
-    gap: var(--gap);
-    perspective: 1000px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  .die-wrap-3d {
-    width: var(--size);
-    height: var(--size);
-    position: relative;
-  }
-  .cube {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    transform-style: preserve-3d;
-  }
-  .face {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(3, 1fr);
-    background: white;
-    border-radius: 12px;
-    border: 1px solid #ccc;
-    box-shadow: 0 6px 18px rgba(0,0,0,.12);
-  }
-  .face::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 12px;
-    background: radial-gradient(120% 120% at 20% 15%, rgba(0,0,0,0.08), rgba(0,0,0,0) 55%);
-    pointer-events: none;
-  }
-  .f-front  { transform: translateZ(calc(var(--size) / 2)); }
-  .f-back   { transform: rotateY(180deg) translateZ(calc(var(--size) / 2)); }
-  .f-right  { transform: rotateY(90deg) translateZ(calc(var(--size) / 2)); }
-  .f-left   { transform: rotateY(-90deg) translateZ(calc(var(--size) / 2)); }
-  .f-top    { transform: rotateX(90deg) translateZ(calc(var(--size) / 2)); }
-  .f-bottom { transform: rotateX(-90deg) translateZ(calc(var(--size) / 2)); }
-
-  /* ピップ（共通） */
-  .pip {
-    width: var(--pip);
-    height: var(--pip);
-    background: #111;
-    border-radius: 50%;
-    margin: auto;
-  }
-  .p1 { grid-area: 1 / 1; }
-  .p2 { grid-area: 1 / 2; }
-  .p3 { grid-area: 1 / 3; }
-  .p4 { grid-area: 2 / 1; }
-  .p5 { grid-area: 2 / 2; }
-  .p6 { grid-area: 2 / 3; }
-  .p7 { grid-area: 3 / 1; }
-  .p8 { grid-area: 3 / 2; }
-  .p9 { grid-area: 3 / 3; }
-
-  /* 結果表示 */
-  .results {
-    margin-top: 20px;
-    padding: 16px;
-    background: #f8f9fa;
-    border-radius: 8px;
+  p.lead {
+    margin: 0 0 36px;
+    color: #475569;
     font-size: 16px;
-    font-weight: 600;
   }
-  .results-detail {
-    margin-top: 8px;
-    font-size: 14px;
-    font-weight: normal;
-    color: #666;
+  .links {
+    display: grid;
+    gap: 16px;
   }
-
-  /* デバッグモード */
-  .debug-controls {
-    margin-top: 12px;
-    padding: 12px;
-    background: #fff3cd;
-    border-radius: 6px;
-    border: 1px solid #ffc107;
-  }
-  .debug-controls label {
-    font-size: 13px;
-    font-weight: 600;
-    margin-bottom: 8px;
-    display: block;
-  }
-  .debug-inputs {
+  a.link-card {
     display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-radius: 16px;
+    border: 1px solid rgba(148,163,184,.25);
+    background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(226,232,240,0.9));
+    color: #1e293b;
+    font-size: 18px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform .2s ease, box-shadow .2s ease;
   }
-  .debug-inputs input {
-    width: 50px;
-    padding: 4px 8px;
-    border: 1px solid #d0d0d0;
-    border-radius: 4px;
-    text-align: center;
+  a.link-card span.label {
+    display: block;
+    font-size: 18px;
+  }
+  a.link-card span.note {
+    font-size: 13px;
+    font-weight: 500;
+    color: #64748b;
+  }
+  a.link-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px rgba(37,99,235,.22);
+  }
+  footer {
+    margin-top: 40px;
+    font-size: 12px;
+    color: #94a3b8;
   }
 </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>🎲 統合サイコロシミュレーター</h1>
-      
-      <div class="config-panel">
-        <!-- 描画方式 -->
-        <div class="config-group">
-          <h3>描画方式</h3>
-          <div class="radio-group">
-            <div class="radio-item">
-              <input type="radio" name="render" id="render2d" value="2d">
-              <label for="render2d">2D (フラット)</label>
-            </div>
-            <div class="radio-item">
-              <input type="radio" name="render" id="render3d" value="3d" checked>
-              <label for="render3d">3D (立体)</label>
-            </div>
-          </div>
+  <main>
+    <h1>Dice Playground</h1>
+    <p class="lead">お好みのサイコロ体験を選んでください。</p>
+    <div class="links">
+      <a class="link-card" href="dice-2d.html">
+        <div>
+          <span class="label">🎲 2Dサイコロ</span>
+          <span class="note">フラットな描画で軽快に動作</span>
         </div>
-
-        <!-- アルゴリズム -->
-        <div class="config-group">
-          <h3>アルゴリズム</h3>
-          <div class="radio-group">
-            <div class="radio-item">
-              <input type="radio" name="algorithm" id="algValue" value="value-first" checked>
-              <label for="algValue">出目先行 (高速・正確)</label>
-            </div>
-            <div class="radio-item">
-              <input type="radio" name="algorithm" id="algVisual" value="visual-first">
-              <label for="algVisual">演出先行 (視覚重視)</label>
-            </div>
-          </div>
+        <span>→</span>
+      </a>
+      <a class="link-card" href="dice-css3d.html">
+        <div>
+          <span class="label">🧊 CSS3Dサイコロ</span>
+          <span class="note">CSS3Dによるリッチな演出</span>
         </div>
-
-        <!-- 3D演出オプション -->
-        <div class="config-group" id="options3d">
-          <h3>3D演出オプション</h3>
-          <div class="radio-group">
-            <div class="radio-item">
-              <input type="radio" name="stop3d" id="stopFree" value="free">
-              <label for="stopFree">フリーストップ</label>
-            </div>
-            <div class="radio-item">
-              <input type="radio" name="stop3d" id="stopSnap" value="snap" checked>
-              <label for="stopSnap">ビタ止め (正確な角度)</label>
-            </div>
-          </div>
+        <span>→</span>
+      </a>
+      <a class="link-card" href="physics-dice.html">
+        <div>
+          <span class="label">🪄 Three.js 物理ダイス</span>
+          <span class="note">実物さながらの物理演算ロール</span>
         </div>
-
-        <!-- 共通設定 -->
-        <div class="config-group">
-          <h3>共通設定</h3>
-          <div class="number-input">
-            <label for="diceCount">個数:</label>
-            <input type="number" id="diceCount" min="1" max="12" value="3">
-          </div>
-          <div class="number-input">
-            <label for="spinCount">回転数:</label>
-            <input type="number" id="spinCount" min="2" max="6" value="4">
-          </div>
-          <div class="number-input">
-            <label for="duration">時間(秒):</label>
-            <input type="number" id="duration" min="0.5" max="2.0" step="0.1" value="1.2">
-          </div>
-          <div class="checkbox-group">
-            <div class="checkbox-item">
-              <input type="checkbox" id="debugMode">
-              <label for="debugMode">デバッグモード</label>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- デバッグコントロール -->
-      <div id="debugControls" class="debug-controls" style="display:none;">
-        <label>任意出目指定 (1-6、カンマ区切り):</label>
-        <input type="text" id="debugValues" placeholder="例: 6,6,6">
-      </div>
-
-      <div class="actions">
-        <button id="rollBtn" class="btn-primary">🎲 振る (Space)</button>
-        <button id="resetBtn" class="btn-secondary">🔄 リセット</button>
-      </div>
-    </header>
-
-    <div class="dice-container">
-      <div id="diceBoard"></div>
-      <div id="results" class="results" style="display:none;"></div>
+        <span>→</span>
+      </a>
     </div>
-  </div>
-
-<script>
-(() => {
-  // ===== グローバル状態 =====
-  const state = {
-    renderMode: '3d',      // '2d' or '3d'
-    algorithm: 'value-first', // 'value-first' or 'visual-first'
-    stop3d: 'snap',        // 'free' or 'snap' (3Dのみ)
-    diceCount: 3,
-    spinCount: 4,
-    duration: 1.2,
-    debugMode: false,
-    isRolling: false,
-    diceElements: []       // 現在のサイコロDOM要素
-  };
-
-  // ===== DOM要素 =====
-  const diceBoard = document.getElementById('diceBoard');
-  const resultsEl = document.getElementById('results');
-  const rollBtn = document.getElementById('rollBtn');
-  const resetBtn = document.getElementById('resetBtn');
-  
-  const render2d = document.getElementById('render2d');
-  const render3d = document.getElementById('render3d');
-  const algValue = document.getElementById('algValue');
-  const algVisual = document.getElementById('algVisual');
-  const stopFree = document.getElementById('stopFree');
-  const stopSnap = document.getElementById('stopSnap');
-  const options3d = document.getElementById('options3d');
-  
-  const diceCountInput = document.getElementById('diceCount');
-  const spinCountInput = document.getElementById('spinCount');
-  const durationInput = document.getElementById('duration');
-  const debugModeCheck = document.getElementById('debugMode');
-  const debugControls = document.getElementById('debugControls');
-  const debugValuesInput = document.getElementById('debugValues');
-
-  // ===== 暗号学的乱数 =====
-  function randint1n(n) {
-    if (crypto?.getRandomValues) {
-      const max = 0xFFFFFFFF;
-      const limit = Math.floor(max / n) * n;
-      const buf = new Uint32Array(1);
-      for (;;) {
-        crypto.getRandomValues(buf);
-        if (buf[0] < limit) return (buf[0] % n) + 1;
-      }
-    } else {
-      return Math.floor(Math.random() * n) + 1;
-    }
-  }
-
-  // ===== ピップ配置 =====
-  function getPipPositions(value) {
-    const map = {
-      1: [5],
-      2: [1, 9],
-      3: [1, 5, 9],
-      4: [1, 3, 7, 9],
-      5: [1, 3, 5, 7, 9],
-      6: [1, 3, 4, 6, 7, 9]
-    };
-    return map[value] || [5];
-  }
-
-  // ===== 2D サイコロ作成 =====
-  function createDie2D(value) {
-    const die = document.createElement('div');
-    die.className = 'die-2d';
-    const pips = getPipPositions(value);
-    for (const pos of pips) {
-      const pip = document.createElement('div');
-      pip.className = `pip p${pos}`;
-      die.appendChild(pip);
-    }
-    die.setAttribute('data-value', value);
-    return die;
-  }
-
-  // ===== 3D サイコロ作成 =====
-  function createDie3D() {
-    const wrap = document.createElement('div');
-    wrap.className = 'die-wrap-3d';
-    const cube = document.createElement('div');
-    cube.className = 'cube';
-    wrap.appendChild(cube);
-
-    const faces = [
-      { cls: 'f-front',  value: 1, pips: [5] },
-      { cls: 'f-back',   value: 6, pips: [1, 3, 4, 6, 7, 9] },
-      { cls: 'f-right',  value: 3, pips: [1, 5, 9] },
-      { cls: 'f-left',   value: 4, pips: [1, 3, 7, 9] },
-      { cls: 'f-top',    value: 5, pips: [1, 3, 5, 7, 9] },
-      { cls: 'f-bottom', value: 2, pips: [1, 9] }
-    ];
-
-    for (const f of faces) {
-      const face = document.createElement('div');
-      face.className = `face ${f.cls}`;
-      face.setAttribute('data-value', f.value);
-      for (const pos of f.pips) {
-        const pip = document.createElement('div');
-        pip.className = `pip p${pos}`;
-        face.appendChild(pip);
-      }
-      cube.appendChild(face);
-    }
-
-    return { wrap, cube };
-  }
-
-  // ===== 3D 回転角度（出目→姿勢マッピング） =====
-  const ORIENT_3D = {
-    1: { x: 0,   y: 0,   z: 0 },
-    2: { x: 90,  y: 0,   z: 0 },
-    3: { x: 0,   y: -90, z: 0 },
-    4: { x: 0,   y: 90,  z: 0 },
-    5: { x: -90, y: 0,   z: 0 },
-    6: { x: 0,   y: 180, z: 0 }
-  };
-
-  // ===== ボード初期化 =====
-  function initBoard() {
-    diceBoard.innerHTML = '';
-    diceBoard.className = state.renderMode === '2d' ? 'board-2d' : 'board-3d';
-    state.diceElements = [];
-    resultsEl.style.display = 'none';
-
-    const count = state.diceCount;
-    
-    if (state.renderMode === '2d') {
-      for (let i = 0; i < count; i++) {
-        const die = createDie2D(randint1n(6));
-        diceBoard.appendChild(die);
-        state.diceElements.push(die);
-      }
-    } else {
-      for (let i = 0; i < count; i++) {
-        const { wrap, cube } = createDie3D();
-        diceBoard.appendChild(wrap);
-        cube.style.transform = 'rotateX(-20deg) rotateY(30deg)';
-        state.diceElements.push(cube);
-      }
-    }
-  }
-
-  // ===== 2D ロール =====
-  function roll2D() {
-    const dice = state.diceElements;
-    const values = getTargetValues();
-    
-    // アニメーション開始
-    dice.forEach(die => die.classList.add('rolling-2d'));
-
-    setTimeout(() => {
-      let total = 0;
-      dice.forEach((die, i) => {
-        const v = values[i];
-        total += v;
-        die.innerHTML = '';
-        const pips = getPipPositions(v);
-        for (const pos of pips) {
-          const pip = document.createElement('div');
-          pip.className = `pip p${pos}`;
-          die.appendChild(pip);
-        }
-        die.setAttribute('data-value', v);
-      });
-
-      setTimeout(() => {
-        dice.forEach(die => die.classList.remove('rolling-2d'));
-        showResults(values, total);
-        state.isRolling = false;
-        rollBtn.disabled = false;
-      }, 500);
-    }, 160);
-  }
-
-  // ===== 3D ロール (出目先行) =====
-  function roll3DValueFirst() {
-    const cubes = state.diceElements;
-    const values = getTargetValues();
-    const useSnap = state.stop3d === 'snap';
-    
-    let remaining = cubes.length;
-    let total = 0;
-
-    cubes.forEach((cube, idx) => {
-      // 初期姿勢リセット
-      cube.style.transition = 'none';
-      cube.style.transform = 'rotateX(-20deg) rotateY(30deg)';
-      void cube.offsetWidth;
-
-      const v = values[idx];
-      total += v;
-      const base = ORIENT_3D[v];
-      const spins = state.spinCount;
-      const rx = base.x + spins * 360 + (Math.random() * 10 - 5);
-      const ry = base.y + spins * 360 + (Math.random() * 10 - 5);
-      const rz = useSnap ? 0 : (Math.random() * 20 - 10);
-
-      cube.style.transition = `transform ${state.duration}s cubic-bezier(.25,1,.3,1)`;
-      cube.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
-
-      const onEnd = () => {
-        if (useSnap) {
-          cube.style.transition = 'none';
-          cube.style.transform = `rotateX(${base.x}deg) rotateY(${base.y}deg) rotateZ(0deg)`;
-        }
-        cube.removeEventListener('transitionend', onEnd);
-        remaining--;
-        if (remaining === 0) {
-          showResults(values, total);
-          state.isRolling = false;
-          rollBtn.disabled = false;
-        }
-      };
-      cube.addEventListener('transitionend', onEnd);
-    });
-  }
-
-  // ===== 3D ロール (演出先行) =====
-  function roll3DVisualFirst() {
-    const cubes = state.diceElements;
-    const values = getTargetValues();
-    
-    let remaining = cubes.length;
-    let total = 0;
-
-    cubes.forEach((cube, idx) => {
-      const v = values[idx];
-      total += v;
-      const base = ORIENT_3D[v];
-      const spins = state.spinCount;
-      const rx = base.x + spins * 360 + (Math.random() * 20 - 10);
-      const ry = base.y + spins * 360 + (Math.random() * 20 - 10);
-      const rz = Math.random() * 180 - 90;
-
-      cube.style.transition = `transform ${state.duration}s cubic-bezier(.2,.7,.2,1)`;
-      cube.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
-
-      const onEnd = () => {
-        cube.removeEventListener('transitionend', onEnd);
-        remaining--;
-        if (remaining === 0) {
-          showResults(values, total);
-          state.isRolling = false;
-          rollBtn.disabled = false;
-        }
-      };
-      cube.addEventListener('transitionend', onEnd);
-    });
-  }
-
-  // ===== 目標値取得（デバッグモード対応） =====
-  function getTargetValues() {
-    if (state.debugMode) {
-      const input = debugValuesInput.value.trim();
-      if (input) {
-        const parsed = input.split(',').map(v => {
-          const n = parseInt(v.trim());
-          return (n >= 1 && n <= 6) ? n : randint1n(6);
-        });
-        while (parsed.length < state.diceCount) {
-          parsed.push(randint1n(6));
-        }
-        return parsed.slice(0, state.diceCount);
-      }
-    }
-    return Array.from({ length: state.diceCount }, () => randint1n(6));
-  }
-
-  // ===== 結果表示 =====
-  function showResults(values, total) {
-    resultsEl.style.display = 'block';
-    resultsEl.innerHTML = `
-      <div>合計: <strong>${total}</strong></div>
-      <div class="results-detail">出目: ${values.join(', ')}</div>
-    `;
-  }
-
-  // ===== ロール実行 =====
-  function executeRoll() {
-    if (state.isRolling) return;
-    state.isRolling = true;
-    rollBtn.disabled = true;
-
-    if (state.renderMode === '2d') {
-      roll2D();
-    } else {
-      if (state.algorithm === 'value-first') {
-        roll3DValueFirst();
-      } else {
-        roll3DVisualFirst();
-      }
-    }
-  }
-
-  // ===== イベントリスナー =====
-  rollBtn.addEventListener('click', executeRoll);
-  resetBtn.addEventListener('click', () => {
-    state.isRolling = false;
-    rollBtn.disabled = false;
-    initBoard();
-  });
-
-  // 描画方式変更
-  [render2d, render3d].forEach(input => {
-    input.addEventListener('change', (e) => {
-      state.renderMode = e.target.value;
-      options3d.classList.toggle('disabled-section', state.renderMode === '2d');
-      initBoard();
-    });
-  });
-
-  // アルゴリズム変更
-  [algValue, algVisual].forEach(input => {
-    input.addEventListener('change', (e) => {
-      state.algorithm = e.target.value;
-    });
-  });
-
-  // 3D停止方式変更
-  [stopFree, stopSnap].forEach(input => {
-    input.addEventListener('change', (e) => {
-      state.stop3d = e.target.value;
-    });
-  });
-
-  // 設定値変更
-  diceCountInput.addEventListener('change', (e) => {
-    state.diceCount = Math.max(1, Math.min(12, parseInt(e.target.value) || 1));
-    initBoard();
-  });
-  spinCountInput.addEventListener('change', (e) => {
-    state.spinCount = Math.max(2, Math.min(6, parseInt(e.target.value) || 4));
-  });
-  durationInput.addEventListener('change', (e) => {
-    state.duration = Math.max(0.5, Math.min(2.0, parseFloat(e.target.value) || 1.2));
-  });
-
-  // デバッグモード
-  debugModeCheck.addEventListener('change', (e) => {
-    state.debugMode = e.target.checked;
-    debugControls.style.display = state.debugMode ? 'block' : 'none';
-  });
-
-  // スペースキー
-  document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && !state.isRolling) {
-      e.preventDefault();
-      executeRoll();
-    }
-  });
-
-  // 初期化
-  initBoard();
-})();
-</script>
+    <footer>© 2024 Dice Playground</footer>
+  </main>
 </body>
 </html>
