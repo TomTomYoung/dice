@@ -9,6 +9,9 @@
     --bg:#0f1115; --fg:#e5e7eb; --muted:#94a3b8; --accent:#7aa2f7;
     --card:#121620; --border:#263042;
     --reel-w:140px; --reel-h:180px;
+    --face-bg-top:#1c2433; --face-bg-bottom:#0e1420;
+    --face-border:#1f2a3c; --face-color:#f8fafc;
+    --glow:#7aa2f7; --face-font:36px;
   }
   html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP","Yu Gothic UI",sans-serif}
   h1{margin:0 0 8px;font-size:24px;letter-spacing:.04em}
@@ -18,6 +21,7 @@
   textarea,input{background:#0d121a;border:1px solid var(--border);color:var(--fg);padding:8px 10px;border-radius:10px;font:inherit}
   textarea{min-width:220px;width:320px;min-height:96px;resize:vertical;line-height:1.5}
   input[type="number"]{width:84px}
+  input[type="color"]{width:54px;height:38px;padding:0;border:none;background:none;cursor:pointer;border-radius:10px;box-shadow:inset 0 0 0 1px rgba(148,163,184,.35)}
   button{background:var(--accent);border:none;color:#0b1020;padding:9px 18px;border-radius:999px;font-weight:700;cursor:pointer;transition:filter .15s ease}
   button:disabled{background:#1b2536;color:#4f6079;cursor:not-allowed;filter:none}
   button:not(:disabled):hover{filter:brightness(1.1)}
@@ -25,9 +29,9 @@
   .stage{margin:28px auto 16px;width:calc(var(--reel-w) + 56px);padding:26px 24px;background:linear-gradient(#0b0e14,#101722);border-radius:18px;border:1px solid var(--border);position:relative;perspective:1200px;box-shadow:0 20px 40px rgba(0,0,0,.35)}
   .reel-wrap{width:var(--reel-w);height:var(--reel-h);margin:0 auto;position:relative;overflow:hidden;border-radius:14px}
   .reel{width:100%;height:100%;position:relative;transform-style:preserve-3d;will-change:transform}
-  .face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:36px;letter-spacing:.04em;background:radial-gradient(120% 120% at 50% -20%,#1c2433 0%,#0e1420 60%);border:1px solid #1f2a3c;border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 12px 28px rgba(0,0,0,.35);backface-visibility:hidden;padding:12px;text-align:center;word-break:break-word}
+  .face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--face-font);letter-spacing:.04em;background:radial-gradient(120% 120% at 50% -20%,var(--face-bg-top) 0%,var(--face-bg-bottom) 60%);border:1px solid var(--face-border);border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 12px 28px rgba(0,0,0,.35);backface-visibility:hidden;padding:12px;text-align:center;word-break:break-word;color:var(--face-color)}
   .reel-wrap::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,rgba(0,0,0,.45),transparent 28%,transparent 72%,rgba(0,0,0,.45))}
-  .glow{position:absolute;left:40px;right:40px;top:50%;height:3px;transform:translateY(-1px);background:linear-gradient(90deg,transparent,rgba(122,162,247,.85),transparent);filter:drop-shadow(0 0 6px rgba(122,162,247,.65));opacity:.85}
+  .glow{position:absolute;left:40px;right:40px;top:50%;height:3px;transform:translateY(-1px);background:linear-gradient(90deg,transparent,var(--glow),transparent);filter:drop-shadow(0 0 6px rgba(122,162,247,.65));opacity:.85}
   .result-card{margin:0 auto;padding:16px 18px;border-radius:14px;border:1px solid var(--border);background:var(--card);text-align:center;max-width:360px}
   .result-card strong{font-size:20px;letter-spacing:.08em}
   .result-card span{display:block;font-size:13px;margin-top:6px;color:var(--muted)}
@@ -53,6 +57,39 @@
       <button id="apply">図柄を更新</button>
       <div class="muted">空白・改行・カンマ（,／、）区切りで複数入力できます。<br>2つ以上の図柄が必要です。</div>
     </div>
+  </div>
+
+  <div class="panel">
+    <label>文字サイズ (px)
+      <input id="faceFontSize" type="number" min="18" max="72" step="1" value="36">
+    </label>
+    <label>背景色
+      <input id="bgColor" type="color" value="#0f1115">
+    </label>
+    <label>文字色
+      <input id="fgColor" type="color" value="#e5e7eb">
+    </label>
+    <label>アクセント色
+      <input id="accentColor" type="color" value="#7aa2f7">
+    </label>
+    <label>カード背景色
+      <input id="cardColor" type="color" value="#121620">
+    </label>
+    <label>枠線色
+      <input id="borderColor" type="color" value="#263042">
+    </label>
+    <label>面の上部色
+      <input id="faceTopColor" type="color" value="#1c2433">
+    </label>
+    <label>面の下部色
+      <input id="faceBottomColor" type="color" value="#0e1420">
+    </label>
+    <label>面の縁色
+      <input id="faceBorderColor" type="color" value="#1f2a3c">
+    </label>
+    <label>グロー色
+      <input id="glowColor" type="color" value="#7aa2f7">
+    </label>
   </div>
 
   <div class="panel">
@@ -95,6 +132,16 @@ const $result = document.getElementById('result');
 const $history = document.getElementById('history');
 const $faceCount = document.getElementById('faceCount');
 const reelWrap = document.querySelector('.reel-wrap');
+const $faceFontSize = document.getElementById('faceFontSize');
+const $bgColor = document.getElementById('bgColor');
+const $fgColor = document.getElementById('fgColor');
+const $accentColor = document.getElementById('accentColor');
+const $cardColor = document.getElementById('cardColor');
+const $borderColor = document.getElementById('borderColor');
+const $faceTopColor = document.getElementById('faceTopColor');
+const $faceBottomColor = document.getElementById('faceBottomColor');
+const $faceBorderColor = document.getElementById('faceBorderColor');
+const $glowColor = document.getElementById('glowColor');
 
 const state = {
   symbols: ['1','2','3','4','5','6'],
@@ -105,8 +152,39 @@ const state = {
   spinning: false,
 };
 
+const styleState = {
+  fontSize: 36,
+  colors: {
+    bg: '#0f1115',
+    fg: '#e5e7eb',
+    accent: '#7aa2f7',
+    card: '#121620',
+    border: '#263042',
+    faceTop: '#1c2433',
+    faceBottom: '#0e1420',
+    faceBorder: '#1f2a3c',
+    faceColor: '#f8fafc',
+    glow: '#7aa2f7',
+  },
+};
+
 function parseSymbols(raw){
   return raw.split(/[\s,、\/]+/).map(s=>s.trim()).filter(Boolean);
+}
+
+function applyTheme(){
+  const rootStyle = document.documentElement.style;
+  rootStyle.setProperty('--bg', styleState.colors.bg);
+  rootStyle.setProperty('--fg', styleState.colors.fg);
+  rootStyle.setProperty('--accent', styleState.colors.accent);
+  rootStyle.setProperty('--card', styleState.colors.card);
+  rootStyle.setProperty('--border', styleState.colors.border);
+  rootStyle.setProperty('--face-bg-top', styleState.colors.faceTop);
+  rootStyle.setProperty('--face-bg-bottom', styleState.colors.faceBottom);
+  rootStyle.setProperty('--face-border', styleState.colors.faceBorder);
+  rootStyle.setProperty('--face-color', styleState.colors.faceColor);
+  rootStyle.setProperty('--glow', styleState.colors.glow);
+  rootStyle.setProperty('--face-font', `${styleState.fontSize}px`);
 }
 
 function updateFaceCount(){
@@ -203,6 +281,35 @@ $symbolsInput.addEventListener('keydown', e=>{
     applySymbols();
   }
 });
+
+$faceFontSize.addEventListener('input', (e)=>{
+  const size = Math.max(12, Math.min(96, Number(e.target.value)||36));
+  styleState.fontSize = size;
+  applyTheme();
+});
+
+function bindColorInput(el, key, targetKey = null){
+  el.addEventListener('input', (e)=>{
+    styleState.colors[key] = e.target.value;
+    if(key === 'fg' && targetKey === 'faceColor'){
+      styleState.colors.faceColor = e.target.value;
+    }
+    if(targetKey){
+      styleState.colors[targetKey] = e.target.value;
+    }
+    applyTheme();
+  });
+}
+
+bindColorInput($bgColor, 'bg');
+bindColorInput($fgColor, 'fg', 'faceColor');
+bindColorInput($accentColor, 'accent');
+bindColorInput($cardColor, 'card');
+bindColorInput($borderColor, 'border');
+bindColorInput($faceTopColor, 'faceTop');
+bindColorInput($faceBottomColor, 'faceBottom');
+bindColorInput($faceBorderColor, 'faceBorder');
+bindColorInput($glowColor, 'glow');
 window.addEventListener('resize', ()=>{
   if(!state.spinning){
     buildFaces();
@@ -210,6 +317,7 @@ window.addEventListener('resize', ()=>{
 });
 
 $symbolsInput.value = state.symbols.join(',');
+applyTheme();
 setSymbols(state.symbols);
 </script>
 </body>
