@@ -8,6 +8,9 @@
   :root {
     color-scheme: light dark;
   }
+  * {
+    box-sizing: border-box;
+  }
   body {
     margin: 0;
     font-family: "Inter", system-ui, -apple-system, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
@@ -17,94 +20,381 @@
     align-items: center;
     justify-content: center;
     padding: 32px 16px;
+    color: #0f172a;
   }
-  main {
-    background: rgba(255,255,255,0.92);
+  main.app {
+    background: rgba(255,255,255,0.94);
     backdrop-filter: blur(12px);
-    border-radius: 24px;
-    box-shadow: 0 24px 60px rgba(59,130,246,.28);
-    max-width: 640px;
+    border-radius: 28px;
+    box-shadow: 0 28px 70px rgba(59,130,246,.28);
+    max-width: 960px;
     width: 100%;
-    padding: 48px 40px;
-    text-align: center;
+    padding: clamp(28px, 5vw, 48px);
+    display: grid;
+    gap: 28px;
+  }
+  header {
+    display: grid;
+    gap: 12px;
   }
   h1 {
-    margin: 0 0 12px;
-    font-size: clamp(32px, 4vw, 44px);
+    margin: 0;
+    font-size: clamp(32px, 4.4vw, 48px);
     color: #1e293b;
     letter-spacing: 0.04em;
   }
   p.lead {
-    margin: 0 0 36px;
+    margin: 0;
     color: #475569;
     font-size: 16px;
   }
-  .links {
+  .dice-area {
     display: grid;
-    gap: 16px;
+    gap: 20px;
   }
-  a.link-card {
+  .board-shell {
+    background: rgba(248,250,252,0.94);
+    border-radius: 20px;
+    padding: clamp(24px, 5vw, 40px);
+    box-shadow: inset 0 1px 0 rgba(148,163,184,.28);
+  }
+  .board-3d {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    perspective: 1200px;
+  }
+  .die-wrap-3d {
+    width: clamp(88px, 10vw, 110px);
+    height: clamp(88px, 10vw, 110px);
+    position: relative;
+  }
+  .cube {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+  }
+  .face {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(145deg, #f8fafc, #e2e8f0);
+    border-radius: 18px;
+    border: 1px solid rgba(148,163,184,.7);
+    box-shadow: inset 0 0 12px rgba(15,23,42,.12);
+  }
+  .face-content {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+  }
+  .pip {
+    width: 14px;
+    height: 14px;
+    background: #0f172a;
+    border-radius: 50%;
+    margin: auto;
+  }
+  .p1 { grid-area: 1 / 1; }
+  .p2 { grid-area: 1 / 2; }
+  .p3 { grid-area: 1 / 3; }
+  .p4 { grid-area: 2 / 1; }
+  .p5 { grid-area: 2 / 2; }
+  .p6 { grid-area: 2 / 3; }
+  .p7 { grid-area: 3 / 1; }
+  .p8 { grid-area: 3 / 2; }
+  .p9 { grid-area: 3 / 3; }
+  .face-label {
+    display: grid;
+    place-items: center;
+    font-size: clamp(32px, 4vw, 40px);
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .f-front  { transform: translateZ(50%); }
+  .f-back   { transform: rotateY(180deg) translateZ(50%); }
+  .f-right  { transform: rotateY(90deg) translateZ(50%); }
+  .f-left   { transform: rotateY(-90deg) translateZ(50%); }
+  .f-top    { transform: rotateX(90deg) translateZ(50%); }
+  .f-bottom { transform: rotateX(-90deg) translateZ(50%); }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    justify-content: center;
+  }
+  .controls label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    color: #334155;
+    background: rgba(226,232,240,0.6);
+    padding: 10px 18px;
+    border-radius: 14px;
+  }
+  .controls input[type="number"] {
+    width: 70px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(148,163,184,.6);
+    font-size: 16px;
+    text-align: center;
+  }
+  .controls button {
+    padding: 12px 28px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    color: white;
+    background: linear-gradient(135deg, #6366f1, #4338ca);
+    box-shadow: 0 18px 40px rgba(79,70,229,.3);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .controls button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 22px 44px rgba(79,70,229,.34);
+  }
+  .controls button:disabled {
+    background: #94a3b8;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+  .results {
+    margin-top: 16px;
+    text-align: center;
+    font-size: 16px;
+    color: #312e81;
+    display: none;
+  }
+  .results strong {
+    font-size: 20px;
+  }
+  nav.links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+  }
+  nav.links a {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 24px;
-    border-radius: 16px;
-    border: 1px solid rgba(148,163,184,.25);
-    background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(226,232,240,0.9));
+    padding: 14px 18px;
+    border-radius: 14px;
+    background: rgba(99,102,241,0.08);
     color: #1e293b;
-    font-size: 18px;
     font-weight: 600;
     text-decoration: none;
     transition: transform .2s ease, box-shadow .2s ease;
   }
-  a.link-card span.label {
-    display: block;
-    font-size: 18px;
-  }
-  a.link-card span.note {
-    font-size: 13px;
-    font-weight: 500;
-    color: #64748b;
-  }
-  a.link-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 20px 40px rgba(37,99,235,.22);
-  }
-  footer {
-    margin-top: 40px;
+  nav.links a span.note {
     font-size: 12px;
-    color: #94a3b8;
+    font-weight: 500;
+    color: #475569;
+  }
+  nav.links a:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 34px rgba(79,70,229,.2);
+  }
+  @media (max-width: 640px) {
+    .controls label {
+      width: 100%;
+      justify-content: space-between;
+    }
+    .controls button {
+      width: 100%;
+    }
   }
 </style>
 </head>
 <body>
-  <main>
-    <h1>Dice Playground</h1>
-    <p class="lead">お好みのサイコロ体験を選んでください。</p>
-    <div class="links">
-      <a class="link-card" href="dice-2d.html">
-        <div>
-          <span class="label">🎲 2Dサイコロ</span>
-          <span class="note">フラットな描画で軽快に動作</span>
-        </div>
-        <span>→</span>
+  <main class="app">
+    <header>
+      <h1>Dice Playground</h1>
+      <p class="lead">トップページでCSS3Dダイスをさっと試せます。詳細設定は各デモへどうぞ。</p>
+    </header>
+    <section class="dice-area">
+      <div class="controls">
+        <label for="diceCount">サイコロの数
+          <input id="diceCount" type="number" min="1" max="12" value="3">
+        </label>
+        <button id="rollBtn">ロールする (Space)</button>
+      </div>
+      <div class="board-shell">
+        <div id="diceBoard" class="board-3d"></div>
+        <div id="results" class="results"></div>
+      </div>
+    </section>
+    <nav class="links">
+      <a href="dice-2d.html">
+        <span>🎲 2Dサイコロ</span>
+        <span class="note">色や表示方法を細かく編集</span>
       </a>
-      <a class="link-card" href="dice-css3d.html">
-        <div>
-          <span class="label">🧊 CSS3Dサイコロ</span>
-          <span class="note">CSS3Dによるリッチな演出</span>
-        </div>
-        <span>→</span>
+      <a href="dice-css3d.html">
+        <span>🧊 CSS3Dサイコロ</span>
+        <span class="note">3D外観を自由にカスタム</span>
       </a>
-      <a class="link-card" href="physics-dice.html">
-        <div>
-          <span class="label">🪄 Three.js 物理ダイス</span>
-          <span class="note">実物さながらの物理演算ロール</span>
-        </div>
-        <span>→</span>
+      <a href="physics-dice.html">
+        <span>🪄 Three.js 物理ダイス</span>
+        <span class="note">実物さながらの物理演算</span>
       </a>
-    </div>
-    <footer>© 2024 Dice Playground</footer>
+    </nav>
   </main>
+<script>
+(() => {
+  const diceBoard = document.getElementById('diceBoard');
+  const rollBtn = document.getElementById('rollBtn');
+  const diceCountInput = document.getElementById('diceCount');
+  const resultsEl = document.getElementById('results');
+
+  const ORIENT_3D = {
+    1: { x: 0,   y: 0,   z: 0 },
+    2: { x: 90,  y: 0,   z: 0 },
+    3: { x: 0,   y: -90, z: 0 },
+    4: { x: 0,   y: 90,  z: 0 },
+    5: { x: -90, y: 0,   z: 0 },
+    6: { x: 0,   y: 180, z: 0 }
+  };
+
+  const facesDef = [
+    { cls: 'f-front', value: 1, pips: [5] },
+    { cls: 'f-back', value: 6, pips: [1, 3, 4, 6, 7, 9] },
+    { cls: 'f-right', value: 3, pips: [1, 5, 9] },
+    { cls: 'f-left', value: 4, pips: [1, 3, 7, 9] },
+    { cls: 'f-top', value: 5, pips: [1, 3, 5, 7, 9] },
+    { cls: 'f-bottom', value: 2, pips: [1, 9] }
+  ];
+
+  const state = {
+    diceCount: Number(diceCountInput.value) || 3,
+    diceElements: [],
+    isRolling: false
+  };
+
+  function randint1n(n) {
+    if (crypto?.getRandomValues) {
+      const max = 0xFFFFFFFF;
+      const limit = Math.floor(max / n) * n;
+      const buf = new Uint32Array(1);
+      for (;;) {
+        crypto.getRandomValues(buf);
+        if (buf[0] < limit) return (buf[0] % n) + 1;
+      }
+    }
+    return Math.floor(Math.random() * n) + 1;
+  }
+
+  function createDie3D() {
+    const wrap = document.createElement('div');
+    wrap.className = 'die-wrap-3d';
+    const cube = document.createElement('div');
+    cube.className = 'cube';
+    wrap.appendChild(cube);
+
+    facesDef.forEach(f => {
+      const face = document.createElement('div');
+      face.className = `face ${f.cls}`;
+      face.dataset.value = f.value;
+      const content = document.createElement('div');
+      content.className = 'face-content';
+      for (const pos of f.pips) {
+        const pip = document.createElement('div');
+        pip.className = `pip p${pos}`;
+        content.appendChild(pip);
+      }
+      face.appendChild(content);
+      cube.appendChild(face);
+    });
+
+    return { wrap, cube };
+  }
+
+  function initBoard() {
+    diceBoard.innerHTML = '';
+    resultsEl.style.display = 'none';
+    state.diceElements = [];
+    for (let i = 0; i < state.diceCount; i++) {
+      const die = createDie3D();
+      die.cube.style.transform = 'rotateX(-20deg) rotateY(30deg)';
+      diceBoard.appendChild(die.wrap);
+      state.diceElements.push(die.cube);
+    }
+  }
+
+  function getTargetValues() {
+    return Array.from({ length: state.diceCount }, () => randint1n(6));
+  }
+
+  function showResults(values, total) {
+    resultsEl.style.display = 'block';
+    resultsEl.innerHTML = `合計: <strong>${total}</strong> ／ 出目: ${values.join(', ')}`;
+  }
+
+  function rollDice() {
+    if (state.isRolling) return;
+    state.isRolling = true;
+    rollBtn.disabled = true;
+
+    const cubes = state.diceElements;
+    const values = getTargetValues();
+    let remaining = cubes.length;
+    let total = 0;
+
+    cubes.forEach((cube, idx) => {
+      cube.style.transition = 'none';
+      cube.style.transform = 'rotateX(-20deg) rotateY(30deg)';
+      void cube.offsetWidth;
+
+      const value = values[idx];
+      total += value;
+      const base = ORIENT_3D[value];
+      const spins = 3;
+      const rx = base.x + spins * 360 + (Math.random() * 6 - 3);
+      const ry = base.y + spins * 360 + (Math.random() * 6 - 3);
+
+      cube.style.transition = 'transform 1.1s cubic-bezier(.25,1,.3,1)';
+      cube.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+
+      const onEnd = () => {
+        cube.removeEventListener('transitionend', onEnd);
+        cube.style.transition = 'none';
+        cube.style.transform = `rotateX(${base.x}deg) rotateY(${base.y}deg)`;
+        remaining--;
+        if (remaining === 0) {
+          showResults(values, total);
+          state.isRolling = false;
+          rollBtn.disabled = false;
+        }
+      };
+      cube.addEventListener('transitionend', onEnd);
+    });
+  }
+
+  rollBtn.addEventListener('click', rollDice);
+  diceCountInput.addEventListener('change', (e) => {
+    const next = Math.max(1, Math.min(12, parseInt(e.target.value, 10) || 1));
+    state.diceCount = next;
+    diceCountInput.value = next;
+    initBoard();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      rollDice();
+    }
+  });
+
+  initBoard();
+})();
+</script>
 </body>
 </html>
