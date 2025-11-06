@@ -1,0 +1,269 @@
+%%html
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CSS3D スロット（3リール／演出→本番スピン）</title>
+<style>
+  :root{
+    --bg:#0f1115; --fg:#e5e7eb; --muted:#94a3b8; --acc:#7aa2f7;
+    --card:#121620; --border:#263042;
+    --reel-w:120px; --reel-h:160px;
+  }
+  html,body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP","Yu Gothic UI",sans-serif}
+  .app{max-width:880px;margin:24px auto;padding:16px}
+  .panel{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:6px 0 14px}
+  .panel input,.panel select,.panel button{background:#0d121a;border:1px solid var(--border);color:var(--fg);padding:6px 10px;border-radius:8px}
+  .panel button{cursor:pointer}
+  .muted{color:var(--muted)}
+  .sep{height:1px;background:var(--border);margin:14px 0}
+
+  .stage{
+    margin:auto; width:calc(var(--reel-w)*3 + 64px);
+    perspective:1000px; background:linear-gradient(#0b0e14,#101722);
+    border:1px solid var(--border); border-radius:16px; padding:24px 18px; position:relative;
+  }
+  .slots{display:flex;justify-content:center;gap:24px;align-items:center}
+  .reel-wrap{
+    width:var(--reel-w); height:var(--reel-h); position:relative; overflow:hidden; /* はみ出し防止 */
+    border-radius:12px;
+  }
+  .reel{width:100%;height:100%;position:relative;transform-style:preserve-3d;will-change:transform}
+  .face{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:28px; letter-spacing:1px;
+    background:radial-gradient(120% 120% at 50% -20%, #1c2433 0%, #0e1420 60%);
+    border:1px solid #1f2a3c; border-radius:12px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 10px 24px rgba(0,0,0,.35);
+    backface-visibility:hidden;
+  }
+  .reel-wrap::after{ /* 端のにじみ隠し（任意） */
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:linear-gradient(to bottom, rgba(0,0,0,.45), transparent 26%, transparent 74%, rgba(0,0,0,.45));
+  }
+  .arm{
+    position:absolute; inset:0; pointer-events:none;
+    border:2px dashed rgba(122,162,247,.18); border-left:none; border-right:none;
+    top:50%; height:0; transform:translateY(-50%);
+  }
+  .glow{
+    position:absolute; left:0; right:0; top:50%; height:2px; transform:translateY(-1px);
+    background:linear-gradient(90deg, transparent, rgba(122,162,247,.7), transparent);
+    filter:drop-shadow(0 0 6px rgba(122,162,247,.6)); opacity:.7;
+  }
+  .result{margin-top:14px; text-align:center; font-size:16px; font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="panel">
+    <button id="spin">スピン</button>
+    <button id="stop" disabled>順次ストップ</button>
+    <label>回転量係数
+      <input id="turns" type="number" min="2" max="20" step="1" value="8" style="width:64px">
+    </label>
+    <label>減速時間(ms)
+      <input id="dur" type="number" min="400" max="6000" step="100" value="2000" style="width:80px">
+    </label>
+    <label>リール間遅延(ms)
+      <input id="stagger" type="number" min="0" max="1500" step="50" value="250" style="width:72px">
+    </label>
+    <label>演出回転 n
+      <input id="warmup" type="number" min="0" max="30" step="1" value="6" style="width:56px">
+    </label>
+    <span class="muted">（CSS3D / rotateX）</span>
+  </div>
+
+  <div class="stage">
+    <div class="arm"></div>
+    <div class="glow"></div>
+    <div class="slots" id="slots"></div>
+    <div class="result" id="result">—</div>
+  </div>
+
+  <div class="sep"></div>
+  <div class="panel">
+    <label>図柄セット
+      <select id="symbolsPreset">
+        <option value="classic">クラシック（BAR/7/🍒/🔔/🍋/🍉 など）</option>
+        <option value="fruits">フルーツ</option>
+        <option value="numbers">数字</option>
+      </select>
+    </label>
+    <button id="apply">適用</button>
+    <span class="muted">※ 面数は図柄数以上で自動調整（既定12）。</span>
+  </div>
+</div>
+
+<script>
+/* ===== 図柄定義 ===== */
+const PRESETS = {
+  classic: ["BAR","7","🍒","🔔","🍋","🍉","⭐","🍇","🍊","💎","🍀"],
+  fruits:  ["🍒","🍋","🍎","🍇","🍓","🍉","🍍","🥝","🍑","🍊","⭐","💎"],
+  numbers: ["1","2","3","4","5","6","7","8","9","★","◎","◇"],
+};
+const REELS = 3;
+let SYMBOLS = PRESETS.classic.slice();
+let FACES   = Math.max(12, SYMBOLS.length);
+
+/* ===== 構築 ===== */
+const $slots = document.getElementById('slots');
+const reels = []; // {wrap, reel, faces[], step, radius, turn, spinning, promise, raf}
+function build(){
+  $slots.innerHTML=''; reels.length=0;
+  for(let r=0;r<REELS;r++){
+    const wrap = document.createElement('div');
+    wrap.className='reel-wrap';
+    const reel = document.createElement('div');
+    reel.className='reel';
+    wrap.appendChild(reel); $slots.appendChild(wrap);
+
+    const H = parseFloat(getComputedStyle(wrap).height);
+    const step = 360 / FACES;
+    const radius = H/2 / Math.tan(Math.PI / FACES);
+
+    const faces=[];
+    for(let i=0;i<FACES;i++){
+      const f=document.createElement('div');
+      f.className='face';
+      f.textContent = SYMBOLS[i % SYMBOLS.length];
+      const rot=i*step;
+      f.style.transform=`rotateX(${rot}deg) translateZ(${radius.toFixed(2)}px)`;
+      reel.appendChild(f); faces.push(f);
+    }
+    reel.style.transform='rotateX(0deg)';
+    reels.push({wrap,reel,faces,step,radius,turn:0,spinning:false,promise:null,raf:null});
+  }
+}
+build();
+
+/* ===== イージング ===== */
+const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+
+/* ===== ランダム結果 ===== */
+function getRandomResult(){
+  return Array.from({length:REELS}, ()=> Math.floor(Math.random()*SYMBOLS.length));
+}
+function faceIndexForSymbolIndex(i){ return i; }
+
+/* ===== 二段アニメ：演出→本番 ===== */
+function animateReelTwoPhase(r, warmupTurns, finalTargetDeg, finalDuration, delay){
+  r.spinning = true;
+  let resolveFn; r.promise = new Promise(res=>resolveFn=res);
+
+  const startDeg = r.turn;
+  const warmupTarget = startDeg - 360*warmupTurns;
+  const warmupPerTurnMs = 220;
+  const warmupDuration = Math.max(200, warmupTurns*warmupPerTurnMs);
+
+  let t0=null;
+  function warmupStep(ts){
+    if(!t0){ t0 = ts + (delay||0); }
+    const t = ts - t0;
+    if(t<0){ r.raf=requestAnimationFrame(warmupStep); return; }
+    const p = Math.min(1, t/warmupDuration);
+    const deg = startDeg + (warmupTarget-startDeg)*p; // 線形
+    r.turn = deg; r.reel.style.transform=`rotateX(${deg}deg)`;
+    if(p<1){ r.raf=requestAnimationFrame(warmupStep); }
+    else{
+      // 見た目を保ったまま角度状態だけ初期化
+      r.turn = startDeg; r.reel.style.transform=`rotateX(${startDeg}deg)`;
+      let s1=null;
+      function mainStep(ts2){
+        if(!s1){ s1=ts2; }
+        const t2 = ts2 - s1;
+        const p2 = Math.min(1, t2/finalDuration);
+        const eased = easeOutCubic(p2);
+        const deg2 = startDeg + (finalTargetDeg-startDeg)*eased;
+        r.turn = deg2; r.reel.style.transform=`rotateX(${deg2}deg)`;
+        if(p2<1){ r.raf=requestAnimationFrame(mainStep); }
+        else{
+          r.spinning=false; r.turn=finalTargetDeg; r.reel.style.transform=`rotateX(${finalTargetDeg}deg)`;
+          resolveFn();
+        }
+      }
+      r.raf=requestAnimationFrame(mainStep);
+    }
+  }
+  r.raf=requestAnimationFrame(warmupStep);
+}
+
+/* ===== スピン／順次ストップ ===== */
+const btnSpin = document.getElementById('spin');
+const btnStop = document.getElementById('stop');
+const inputTurns = document.getElementById('turns');
+const inputDur = document.getElementById('dur');
+const inputStagger = document.getElementById('stagger');
+const inputWarmup = document.getElementById('warmup');
+const $result = document.getElementById('result');
+
+function spinAll(){
+  if(reels.some(r=>r.spinning)) return;
+  const TURNS = Math.max(2, Math.min(20, parseInt(inputTurns.value)||8));
+  const DUR   = Math.max(400, Math.min(6000, parseInt(inputDur.value)||2000));
+  const STAG  = Math.max(0, Math.min(1500, parseInt(inputStagger.value)||250));
+  const WARM  = Math.max(0, Math.min(30, parseInt(inputWarmup.value)||0));
+
+  const resultIdx = getRandomResult();
+  const resultSym = resultIdx.map(i=>SYMBOLS[i]);
+
+  reels.forEach((r, ri)=>{
+    const faceIdx = faceIndexForSymbolIndex(resultIdx[ri]) % r.faces.length;
+    const baseTarget = -faceIdx * r.step;
+    const extraTurns = (TURNS + ri);
+    const targetDeg = baseTarget - 360 * extraTurns;
+    animateReelTwoPhase(r, WARM, targetDeg, DUR + ri*120, STAG*ri);
+  });
+
+  btnSpin.disabled=true; btnStop.disabled=false; $result.textContent='スピン中…';
+  Promise.all(reels.map(r=>r.promise)).then(()=>{
+    $result.textContent = `結果: [ ${resultSym.join(' | ')} ]`;
+    btnSpin.disabled=false; btnStop.disabled=true;
+  });
+}
+
+function stopSequential(){
+  const DUR = Math.max(400, Math.min(6000, parseInt(inputDur.value)||2000));
+  const STAG= Math.max(0, Math.min(1500, parseInt(inputStagger.value)||250));
+  const WARM= Math.max(0, Math.min(30, parseInt(inputWarmup.value)||0));
+
+  const picks = getRandomResult();
+  reels.forEach((r,i)=>{
+    const idx = faceIndexForSymbolIndex(picks[i]) % r.faces.length;
+    const baseTarget = -idx * r.step;
+    const now = r.turn;
+    const turnsAhead = 2 + i;
+    let targetDeg = baseTarget - 360 * turnsAhead;
+    while (targetDeg > now - 360) targetDeg -= 360;
+    animateReelTwoPhase(r, WARM, targetDeg, DUR + i*160, STAG*i);
+  });
+
+  btnStop.disabled = true;
+}
+
+btnSpin.onclick = spinAll;
+btnStop.onclick = stopSequential;
+
+/* ===== 図柄セット切替 ===== */
+document.getElementById('apply').onclick=()=>{
+  const v = document.getElementById('symbolsPreset').value;
+  SYMBOLS = PRESETS[v].slice();
+  FACES = Math.max(12, SYMBOLS.length);
+  build(); $result.textContent='—';
+};
+
+/* ===== リサイズ時の半径更新 ===== */
+addEventListener('resize', ()=>{
+  reels.forEach(r=>{
+    const H = parseFloat(getComputedStyle(r.wrap).height);
+    const radius = H/2 / Math.tan(Math.PI / FACES);
+    r.faces.forEach((f,i)=>{
+      f.style.transform = `rotateX(${i*r.step}deg) translateZ(${radius.toFixed(2)}px)`;
+    });
+    r.reel.style.transform = `rotateX(${r.turn}deg)`;
+  });
+});
+</script>
+</body>
+</html>
