@@ -142,6 +142,12 @@
     height: var(--size);
     position: relative;
   }
+  .die-viewer {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+  }
   .cube {
     width: 100%;
     height: 100%;
@@ -355,6 +361,20 @@
       </div>
 
       <div class="config-group">
+        <h3>ビュー</h3>
+        <div class="radio-group">
+          <div class="radio-item">
+            <input type="radio" name="viewMode" id="viewOne" value="one">
+            <label for="viewOne">1面モード</label>
+          </div>
+          <div class="radio-item">
+            <input type="radio" name="viewMode" id="viewThree" value="three" checked>
+            <label for="viewThree">3面モード</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="config-group">
         <h3>外観設定</h3>
         <div class="form-row">
           <label for="faceMode">出目の表示</label>
@@ -468,6 +488,8 @@
   const algVisual = document.getElementById('algVisual');
   const stopFree = document.getElementById('stopFree');
   const stopSnap = document.getElementById('stopSnap');
+  const viewOneInput = document.getElementById('viewOne');
+  const viewThreeInput = document.getElementById('viewThree');
   const bodyColorInput = document.getElementById('bodyColor');
   const detailColorInput = document.getElementById('detailColor');
   const borderColorInput = document.getElementById('borderColor');
@@ -496,6 +518,11 @@
     6: { x: 0,   y: 180, z: 0 }
   };
 
+  const VIEWER_ANGLES = {
+    one: { x: 0, y: 0 },
+    three: { x: -28, y: 38 }
+  };
+
   const appearance = {
     bodyColor: bodyColorInput.value,
     detailColor: detailColorInput.value,
@@ -514,7 +541,8 @@
     stop3d: 'snap',
     diceElements: [],
     isRolling: false,
-    debugMode: false
+    debugMode: false,
+    viewMode: viewThreeInput?.checked ? 'three' : 'one'
   };
 
   function randint1n(n) {
@@ -563,9 +591,12 @@
   function createDie3D() {
     const wrap = document.createElement('div');
     wrap.className = 'die-wrap-3d';
+    const viewer = document.createElement('div');
+    viewer.className = 'die-viewer';
+    wrap.appendChild(viewer);
     const cube = document.createElement('div');
     cube.className = 'cube';
-    wrap.appendChild(cube);
+    viewer.appendChild(cube);
 
     const faces = facesDef.map(f => {
       const face = document.createElement('div');
@@ -578,7 +609,25 @@
       return { face, content, value: f.value, pips: f.pips };
     });
 
-    return { wrap, cube, faces };
+    return { wrap, viewer, cube, faces };
+  }
+
+  function applyViewToDie(die, animate = true) {
+    if (!die?.viewer) return;
+    const target = VIEWER_ANGLES[state.viewMode] || VIEWER_ANGLES.three;
+    if (animate) {
+      die.viewer.style.transition = 'transform 320ms ease';
+      die.viewer.addEventListener('transitionend', () => {
+        die.viewer.style.transition = 'none';
+      }, { once: true });
+    } else {
+      die.viewer.style.transition = 'none';
+    }
+    die.viewer.style.transform = `rotateX(${target.x}deg) rotateY(${target.y}deg)`;
+  }
+
+  function applyViewToAllDice(animate = true) {
+    state.diceElements.forEach(die => applyViewToDie(die, animate));
   }
 
   function applyFaceStyle(faceObj) {
@@ -655,10 +704,12 @@
 
     for (let i = 0; i < state.diceCount; i++) {
       const die = createDie3D();
-      die.cube.style.transform = 'rotateX(-20deg) rotateY(30deg)';
       diceBoard.appendChild(die.wrap);
       state.diceElements.push(die);
       applyAppearance(die);
+      const base = ORIENT_3D[1];
+      die.cube.style.transform = `rotateX(${base.x}deg) rotateY(${base.y}deg) rotateZ(${base.z}deg)`;
+      applyViewToDie(die, false);
     }
   }
 
@@ -706,12 +757,12 @@
     state.diceElements.forEach((die, idx) => {
       const cube = die.cube;
       cube.style.transition = 'none';
-      cube.style.transform = 'rotateX(-20deg) rotateY(30deg)';
+      const v = values[idx];
+      const base = ORIENT_3D[v];
+      cube.style.transform = `rotateX(${base.x}deg) rotateY(${base.y}deg) rotateZ(${base.z}deg)`;
       void cube.offsetWidth;
 
-      const v = values[idx];
       total += v;
-      const base = ORIENT_3D[v];
       const spins = state.spinCount;
       const rx = base.x + spins * 360 + (Math.random() * 10 - 5);
       const ry = base.y + spins * 360 + (Math.random() * 10 - 5);
@@ -756,6 +807,9 @@
       const v = values[idx];
       total += v;
       const base = ORIENT_3D[v];
+      cube.style.transition = 'none';
+      cube.style.transform = `rotateX(${base.x}deg) rotateY(${base.y}deg) rotateZ(${base.z}deg)`;
+      void cube.offsetWidth;
       const spins = state.spinCount;
       const rx = base.x + spins * 360 + (Math.random() * 20 - 10);
       const ry = base.y + spins * 360 + (Math.random() * 20 - 10);
@@ -811,6 +865,16 @@
   ;[stopFree, stopSnap].forEach(input => {
     input.addEventListener('change', (e) => {
       state.stop3d = e.target.value;
+    });
+  });
+
+  ;[viewOneInput, viewThreeInput].forEach(input => {
+    if (!input) return;
+    input.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        state.viewMode = e.target.value;
+        applyViewToAllDice(true);
+      }
     });
   });
 
@@ -896,6 +960,7 @@
   imageConfig.style.display = appearance.faceMode === 'image' ? 'block' : 'none';
 
   initBoard();
+  applyViewToAllDice(false);
 })();
 </script>
 </body>
