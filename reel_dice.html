@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>リールダイス</title>
+<style>
+  :root{
+    --bg:#0f1115; --fg:#e5e7eb; --muted:#94a3b8; --accent:#7aa2f7;
+    --card:#121620; --border:#263042;
+    --reel-w:140px; --reel-h:180px;
+  }
+  html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP","Yu Gothic UI",sans-serif}
+  h1{margin:0 0 8px;font-size:24px;letter-spacing:.04em}
+  .app{max-width:720px;margin:28px auto;padding:16px}
+  .panel{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;margin:12px 0 18px}
+  .panel label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px}
+  textarea,input{background:#0d121a;border:1px solid var(--border);color:var(--fg);padding:8px 10px;border-radius:10px;font:inherit}
+  textarea{min-width:220px;width:320px;min-height:96px;resize:vertical;line-height:1.5}
+  input[type="number"]{width:84px}
+  button{background:var(--accent);border:none;color:#0b1020;padding:9px 18px;border-radius:999px;font-weight:700;cursor:pointer;transition:filter .15s ease}
+  button:disabled{background:#1b2536;color:#4f6079;cursor:not-allowed;filter:none}
+  button:not(:disabled):hover{filter:brightness(1.1)}
+  .muted{color:var(--muted);font-size:13px}
+  .stage{margin:28px auto 16px;width:calc(var(--reel-w) + 56px);padding:26px 24px;background:linear-gradient(#0b0e14,#101722);border-radius:18px;border:1px solid var(--border);position:relative;perspective:1200px;box-shadow:0 20px 40px rgba(0,0,0,.35)}
+  .reel-wrap{width:var(--reel-w);height:var(--reel-h);margin:0 auto;position:relative;overflow:hidden;border-radius:14px}
+  .reel{width:100%;height:100%;position:relative;transform-style:preserve-3d;will-change:transform}
+  .face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:36px;letter-spacing:.04em;background:radial-gradient(120% 120% at 50% -20%,#1c2433 0%,#0e1420 60%);border:1px solid #1f2a3c;border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 12px 28px rgba(0,0,0,.35);backface-visibility:hidden;padding:12px;text-align:center;word-break:break-word}
+  .reel-wrap::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,rgba(0,0,0,.45),transparent 28%,transparent 72%,rgba(0,0,0,.45))}
+  .glow{position:absolute;left:40px;right:40px;top:50%;height:3px;transform:translateY(-1px);background:linear-gradient(90deg,transparent,rgba(122,162,247,.85),transparent);filter:drop-shadow(0 0 6px rgba(122,162,247,.65));opacity:.85}
+  .result-card{margin:0 auto;padding:16px 18px;border-radius:14px;border:1px solid var(--border);background:var(--card);text-align:center;max-width:360px}
+  .result-card strong{font-size:20px;letter-spacing:.08em}
+  .result-card span{display:block;font-size:13px;margin-top:6px;color:var(--muted)}
+  .flex-gap{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  .note{margin-top:-6px}
+  @media (max-width:640px){
+    textarea{width:100%}
+    .stage{width:calc(var(--reel-w) + 36px);padding:22px 18px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>リールダイス</h1>
+  <p class="muted">任意の図柄をリールに配置して、n面体のサイコロのように使える CSS3D のスピナーです。</p>
+
+  <div class="panel">
+    <label>
+      図柄リスト
+      <textarea id="symbolsInput" placeholder="1,2,3,4,5,6"></textarea>
+    </label>
+    <div class="flex-gap">
+      <button id="apply">図柄を更新</button>
+      <div class="muted">空白・改行・カンマ（,／、）区切りで複数入力できます。<br>2つ以上の図柄が必要です。</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <label>回転量（ターン）
+      <input id="turns" type="number" min="3" max="40" step="1" value="10">
+    </label>
+    <label>スピン時間 (ms)
+      <input id="duration" type="number" min="500" max="6000" step="100" value="2400">
+    </label>
+    <label>停止角のランダム揺らぎ (度)
+      <input id="jitter" type="number" min="0" max="14" step="1" value="4">
+    </label>
+    <button id="spin">回す</button>
+  </div>
+
+  <div class="muted note">現在の面数：<span id="faceCount">—</span> 面</div>
+
+  <div class="stage">
+    <div class="reel-wrap">
+      <div class="reel" id="reel"></div>
+    </div>
+    <div class="glow"></div>
+  </div>
+
+  <div class="result-card">
+    <strong id="result">—</strong>
+    <span id="history">まだ結果はありません。</span>
+  </div>
+</div>
+
+<script>
+const $reel = document.getElementById('reel');
+const $symbolsInput = document.getElementById('symbolsInput');
+const $apply = document.getElementById('apply');
+const $spin = document.getElementById('spin');
+const $turns = document.getElementById('turns');
+const $duration = document.getElementById('duration');
+const $jitter = document.getElementById('jitter');
+const $result = document.getElementById('result');
+const $history = document.getElementById('history');
+const $faceCount = document.getElementById('faceCount');
+const reelWrap = document.querySelector('.reel-wrap');
+
+const state = {
+  symbols: ['1','2','3','4','5','6'],
+  faces: 0,
+  step: 0,
+  radius: 0,
+  rotation: 0,
+  spinning: false,
+};
+
+function parseSymbols(raw){
+  return raw.split(/[\s,、\/]+/).map(s=>s.trim()).filter(Boolean);
+}
+
+function updateFaceCount(){
+  $faceCount.textContent = state.symbols.length;
+}
+
+function buildFaces(){
+  const faces = state.symbols.length;
+  state.faces = faces;
+  state.step = 360 / faces;
+  const height = reelWrap.offsetHeight || parseFloat(getComputedStyle(reelWrap).height);
+  if(faces === 1){
+    state.radius = 0;
+  }else if(faces === 2){
+    state.radius = height / 2;
+  }else{
+    state.radius = (height / 2) / Math.tan(Math.PI / faces);
+  }
+  $reel.innerHTML = '';
+  for(let i=0;i<faces;i++){
+    const face = document.createElement('div');
+    face.className = 'face';
+    face.textContent = state.symbols[i];
+    const rot = i * state.step;
+    face.style.transform = `rotateX(${rot}deg) translateZ(${state.radius.toFixed(2)}px)`;
+    $reel.appendChild(face);
+  }
+  $reel.style.transition = 'none';
+  $reel.style.transform = `rotateX(${state.rotation}deg)`;
+  requestAnimationFrame(()=>{$reel.style.transition='';});
+  updateFaceCount();
+}
+
+function setSymbols(list){
+  state.symbols = list.slice();
+  state.rotation = 0;
+  buildFaces();
+  $spin.disabled = state.symbols.length < 2;
+  if(state.symbols.length >= 1){
+    $result.textContent = state.symbols[0];
+    $history.textContent = `最初の図柄：${state.symbols[0]}`;
+  }else{
+    $result.textContent = '—';
+    $history.textContent = '図柄を入力してください。';
+  }
+}
+
+function applySymbols(){
+  const parsed = parseSymbols($symbolsInput.value);
+  if(parsed.length < 2){
+    alert('2つ以上の図柄を入力してください。');
+    return;
+  }
+  setSymbols(parsed);
+}
+
+function spin(){
+  if(state.spinning || state.symbols.length < 2){
+    return;
+  }
+  const turns = Math.max(1, parseInt($turns.value,10) || 8);
+  const duration = Math.max(200, parseInt($duration.value,10) || 2000);
+  const jitter = Math.max(0, parseInt($jitter.value,10) || 0);
+  const index = Math.floor(Math.random() * state.symbols.length);
+  const target = -index * state.step;
+  const currentMod = ((state.rotation % 360) + 360) % 360;
+  const jitterOffset = (jitter > 0) ? (Math.random() * jitter * 2 - jitter) : 0;
+  const finalRotation = state.rotation - turns * 360 + (target - currentMod) + jitterOffset;
+  state.spinning = true;
+  $spin.disabled = true;
+  $reel.style.transition = `transform ${duration}ms cubic-bezier(0.23, 1, 0.32, 1)`;
+  requestAnimationFrame(()=>{
+    $reel.style.transform = `rotateX(${finalRotation}deg)`;
+  });
+  const finish = (event)=>{
+    if(event.target !== $reel || event.propertyName !== 'transform') return;
+    $reel.removeEventListener('transitionend', finish);
+    state.rotation = finalRotation;
+    state.spinning = false;
+    $spin.disabled = false;
+    $reel.style.transition = '';
+    const symbol = state.symbols[index];
+    $result.textContent = symbol;
+    $history.textContent = `${state.symbols.length}面体での結果：${symbol}`;
+  };
+  $reel.addEventListener('transitionend', finish);
+}
+
+$apply.addEventListener('click', applySymbols);
+$spin.addEventListener('click', spin);
+$symbolsInput.addEventListener('keydown', e=>{
+  if((e.metaKey || e.ctrlKey) && e.key === 'Enter'){
+    e.preventDefault();
+    applySymbols();
+  }
+});
+window.addEventListener('resize', ()=>{
+  if(!state.spinning){
+    buildFaces();
+  }
+});
+
+$symbolsInput.value = state.symbols.join(',');
+setSymbols(state.symbols);
+</script>
+</body>
+</html>
